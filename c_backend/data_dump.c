@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 
     // Execute the Python script before opening the serial port
     char python_command[256];
-    snprintf(python_command, sizeof(python_command), "python3 /home/root/sda/serial_workaround.py %s %d %c %d %d", serialPortName, baudRate, parity, dataBits, stopBits);
+    snprintf(python_command, sizeof(python_command), "python3 /home/root/sda/python_backend/serial_workaround.py %s %d %c %d %d", serialPortName, baudRate, parity, dataBits, stopBits);
     system(python_command);
 
     // Open the serial port
