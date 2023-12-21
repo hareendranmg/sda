@@ -1,5 +1,7 @@
 # connmanctl services
 # connmanctl config ethernet_XXXX_YYYY --ipv4 manual 192.168.10.100 255.255.255.0 192.168.10.1 --nameservers 8.8.8.8 4.4.4.4 
+# connmanctl config <ethernet_service> --ipv4 manual <ip_address> <netmask> <gateway> --nameservers <dns> <alternate_dns> 
+
 # cd to /lib/modules/5.15.129-6.4.0-devel+git.67c3153d20ff/build
 # Execute make modules_prepare 
 
