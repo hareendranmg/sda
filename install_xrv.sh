@@ -34,6 +34,7 @@ if [ -z "$exar_serial_pci_address" ]; then
 fi
 
 echo -n "$exar_serial_pci_address" > /sys/bus/pci/drivers/exar_serial/unbind
+echo -n "0000:01:00.0" > /sys/bus/pci/drivers/exar_serial/unbind
 
 # Insert the maxlinear custom kernel module
 insmod xr17v35x.ko
