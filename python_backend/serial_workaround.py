@@ -11,7 +11,7 @@ def open_serial_port(serial_port_name, baud_rate, parity, data_bits, stop_bits):
         print(f"Parity: {parity}")
         print(f"Data bits: {data_bits}")
         print(f"Stop bits: {stop_bits}")
-        
+
         ser = serial.Serial(
             port=serial_port_name,
             baudrate=baud_rate,
