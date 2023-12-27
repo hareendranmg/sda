@@ -32,24 +32,28 @@ void cleanup(int serial_fd, FILE *outputFile) {
 void rename_output_file(const char *outputFileName)
 {
     char old_file_name[MAX_FILE_PATH];
+    // Get the current time
     time_t now = time(NULL);
+    // Convert the current time to a structure containing year, month, day, hour, minute, second
     struct tm *t = localtime(&now);
-    strftime(old_file_name, sizeof(old_file_name), "%Y%m%d_%H%M%S", t);
+    // Format the current time as a string in the specified format and store it in old_file_name
+    strftime(old_file_name, sizeof(old_file_name), "data_dump_old_%Y%m%d_%H%M%S.csv", t);
 
-    char *file_name = strrchr(outputFileName, '/');
-    char *file_name_without_path = file_name ? file_name + 1 : outputFileName;
-    char *file_name_without_ext = strrchr(file_name_without_path, '.');
-    char *file_ext = file_name_without_ext ? file_name_without_ext : "";
+    // Find the last occurrence of '/' in outputFileName
+    const char *file_name = strrchr(outputFileName, '/');
+    // Set file_name_without_path to the substring after the last '/'
+    const char *file_name_without_path = file_name ? file_name + 1 : outputFileName;
 
-    // Use strncpy for string operations
-    strncpy(old_file_name, outputFileName, sizeof(old_file_name) - strlen(file_ext) - 1);
-    strncat(old_file_name, "_old_", sizeof(old_file_name) - strlen(old_file_name) - 1);
-    strncat(old_file_name, old_file_name, sizeof(old_file_name) - strlen(old_file_name) - 1);
-    strncat(old_file_name, file_ext, sizeof(old_file_name) - strlen(old_file_name) - 1);
+    // Construct the new file name by appending file_name_without_path to old_file_name
+    strncat(old_file_name, file_name_without_path, sizeof(old_file_name) - strlen(old_file_name) - 1);
 
+    // Print the old and new file names
     printf("Renaming %s to %s\n", outputFileName, old_file_name);
+    // Rename the file from outputFileName to old_file_name
     rename(outputFileName, old_file_name);
 }
+
+
 
 int open_serial_port(const char *serialPortName) {
     int serial_fd = open(serialPortName, O_RDWR | O_NOCTTY | O_NONBLOCK);
