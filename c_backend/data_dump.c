@@ -32,28 +32,31 @@ void cleanup(int serial_fd, FILE *outputFile) {
 void rename_output_file(const char *outputFileName)
 {
     char old_file_name[MAX_FILE_PATH];
-    // Get the current time
+    char time_stamp[MAX_FILE_PATH];
+    char new_file_name[MAX_FILE_PATH];
+
     time_t now = time(NULL);
-    // Convert the current time to a structure containing year, month, day, hour, minute, second
     struct tm *t = localtime(&now);
-    // Format the current time as a string in the specified format and store it in old_file_name
-    strftime(old_file_name, sizeof(old_file_name), "data_dump_old_%Y%m%d_%H%M%S.csv", t);
+    strftime(time_stamp, sizeof(time_stamp), "%Y%m%d_%H%M%S", t);
+    printf("time_stamp: %s\n", time_stamp);
 
-    // Find the last occurrence of '/' in outputFileName
     const char *file_name = strrchr(outputFileName, '/');
-    // Set file_name_without_path to the substring after the last '/'
+    printf("file_name: %s\n", file_name);
     const char *file_name_without_path = file_name ? file_name + 1 : outputFileName;
+    printf("file_name_without_path: %s\n", file_name_without_path);
+    const char *file_name_without_ext = strrchr(file_name_without_path, '.');
+    printf("file_name_without_ext: %s\n", file_name_without_ext);
+    const char *file_ext = file_name_without_ext ? file_name_without_ext : "";
+    printf("file_ext: %s\n", file_ext);
 
-    // Construct the new file name by appending file_name_without_path to old_file_name
-    strncat(old_file_name, file_name_without_path, sizeof(old_file_name) - strlen(old_file_name) - 1);
+    // Construct the new file name
+    snprintf(old_file_name, sizeof(old_file_name), "%.*s_old_%s%s",
+             (file_name_without_ext - file_name_without_path),
+             file_name_without_path, time_stamp, file_ext);
 
-    // Print the old and new file names
     printf("Renaming %s to %s\n", outputFileName, old_file_name);
-    // Rename the file from outputFileName to old_file_name
     rename(outputFileName, old_file_name);
 }
-
-
 
 int open_serial_port(const char *serialPortName) {
     int serial_fd = open(serialPortName, O_RDWR | O_NOCTTY | O_NONBLOCK);
