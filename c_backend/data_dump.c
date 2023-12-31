@@ -97,6 +97,10 @@ void set_serial_parameters(int serial_fd, int baudRate, char parity, int dataBit
         tty.c_cflag |= CS8;
     } else if (dataBits == 7) {
         tty.c_cflag |= CS7;
+    } else if (dataBits == 6) {
+        tty.c_cflag |= CS6;
+    } else if (dataBits == 5) {
+        tty.c_cflag |= CS5;
     } else {
         fprintf(stderr, "Invalid number of data bits\n");
         cleanup(serial_fd, NULL);
