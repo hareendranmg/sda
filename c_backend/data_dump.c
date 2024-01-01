@@ -5,12 +5,13 @@
 #include <unistd.h>
 #include <signal.h>
 #include <termios.h>
-#include <time.h>
 
 #define BUFFER_SIZE 1024
 #define MAX_FILE_PATH 256
 
 volatile sig_atomic_t stop_flag = 0;
+size_t currentFileSize = 0;
+int fileCounter = 1;
 
 void handle_signal(int signum)
 {
@@ -125,9 +126,11 @@ void set_serial_parameters(int serial_fd, speed_t baudRate, char parity, int dat
     }
 }
 
-FILE *open_output_file(const char *outputFileName)
+FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter)
 {
-    FILE *outputFile = fopen(outputFileName, "wb");
+    char newFileName[MAX_FILE_PATH];
+    snprintf(newFileName, sizeof(newFileName), "%s_%d.%s", outputFileName, counter, fileExtension);
+    FILE *outputFile = fopen(newFileName, "wb");
     if (!outputFile)
     {
         perror("Error opening output file");
@@ -144,9 +147,9 @@ int main(int argc, char *argv[])
     {
         printf("argv[%d]: %s\n", i, argv[i]);
     }
-    if (argc != 7)
+    if (argc != 9)
     {
-        fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits> <filesize> <file_extension>\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -156,6 +159,21 @@ int main(int argc, char *argv[])
     char parity = argv[4][0];
     int dataBits = atoi(argv[5]);
     int stopBits = atoi(argv[6]);
+    size_t filesize = atoi(argv[7]);
+    const char *fileExtension = argv[8];
+
+    if (baudRate < 0 || baudRate > 4000000)
+    {
+        fprintf(stderr, "Invalid baud rate\n");
+        return EXIT_FAILURE;
+    }
+
+    // the filesize is in bytes, we need to check if it is fall within the range of 1MB to 1GB
+    // if (filesize < 1000000 || filesize > 1000000000)
+    // {
+    //     fprintf(stderr, "Invalid filesize\n");
+    //     return EXIT_FAILURE;
+    // }
 
     // Execute the Python script before opening the serial port
     char python_command[MAX_FILE_PATH];
@@ -166,7 +184,7 @@ int main(int argc, char *argv[])
 
     int serial_fd = open_serial_port(serialPortName);
 
-    FILE *outputFile = open_output_file(outputFileName);
+    FILE *outputFile = open_output_file(outputFileName, fileExtension, fileCounter);
 
     set_serial_parameters(serial_fd, baudRate, parity, dataBits, stopBits);
 
@@ -183,8 +201,19 @@ int main(int argc, char *argv[])
 
         if (bytesRead > 0)
         {
+            // i need to print like "cuurentFileSize/filesize"
+            printf("%ld/%ld\n", currentFileSize, filesize);
+            if (currentFileSize + bytesRead > filesize)
+            {
+                fclose(outputFile);
+                outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter);
+                currentFileSize = 0;
+            }
+
             fwrite(buffer, 1, bytesRead, outputFile);
             fflush(outputFile);
+
+            currentFileSize += bytesRead;
         }
         else if (bytesRead < 0)
         {
