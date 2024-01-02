@@ -201,8 +201,6 @@ int main(int argc, char *argv[])
 
         if (bytesRead > 0)
         {
-            // i need to print like "cuurentFileSize/filesize"
-            printf("%ld/%ld\n", currentFileSize, filesize);
             if (currentFileSize + bytesRead > filesize)
             {
                 fclose(outputFile);
