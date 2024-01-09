@@ -2,7 +2,7 @@
 /*
 *      xr17v35x.c  -- MaxLinear multiport serial driver.
 *
-*      
+*
 *****************************************************************************
 *                                        Copyright (c) 2010, MaxLinear, Inc.
 *****************************************************************************
@@ -29,8 +29,8 @@
 *       ChangeLog:
 *	   for    	: LINUX 2.6.32 and newer (Tested on various kernel versions from 2.6.32 to 4.15)
 *	   date   	: July 2019
-*	   version	: 2.6 
-*	 Note: XR_17v35x_UART_RHR was not defined. Fixed  
+*	   version	: 2.6
+*	 Note: XR_17v35x_UART_RHR was not defined. Fixed
 *	Check Release Notes for information on what has changed in the new version.
 *
 */
@@ -108,7 +108,7 @@ struct serial_uart_config {
 
 #define XR_MAJOR       30
 #define XR_MINOR       0
-/*	
+/*
    Set this parameter to 1 to enable Debug mode
    The Driver enables the internal loopback under debug mode
    To disable internal loopback go to serialxr_set_termios
@@ -120,8 +120,8 @@ struct serial_uart_config {
 /*
  * The special register set for XR17V35x UARTs.
  */
- 
-#define XR_17v35x_UART_RHR			0 
+
+#define XR_17v35x_UART_RHR			0
 #define XR_17v35x_UART_THR			0
 #define	XR_17V35X_UART_DLD	        2
 #define	XR_17V35X_UART_MSR	        6
@@ -131,7 +131,7 @@ struct serial_uart_config {
 #define XR_17V35X_EXTENDED_TXTRG	10
 #define XR_17V35X_RXFIFO_CNT		11
 #define XR_17V35X_EXTENDED_RXTRG	11
-#define XR_17V35X_UART_XOFF2      	13 
+#define XR_17V35X_UART_XOFF2      	13
 #define XR_17V35X_UART_XOFF1 		0xC0
 #define XR_17V35X_UART_XON1			0xE0
 #define XR_17V35X_FCTR_RTS_8DELAY	0x03
@@ -147,7 +147,7 @@ struct serial_uart_config {
 
 
 // Set this parameter to 1 to enable RS485 mode
-#define ENABLE_RS485		        0
+#define ENABLE_RS485		        1
 //Set this parameter to 1 to enable DTR RS-485 half duplex direction control
 #define USE_DTR_RS485                    0
 // Set this parameter to 1 to enabled internal loopback
@@ -197,7 +197,7 @@ struct pci_serial_quirk {
 	u32	subvendor;
 	u32	subdevice;
 	int	(*init)(struct pci_dev *dev);
-	int	(*setup)(struct serial_private *, 
+	int	(*setup)(struct serial_private *,
 			 const struct pciserial_board *,
 			 struct uart_port *, int);
 	void	(*exit)(struct pci_dev *dev);
@@ -242,7 +242,7 @@ static struct pciserial_board xrpciserial_boards[] __devinitdata = {
 		.reg_shift	= 0,
 		.first_offset	= 0,
 	},
-	
+
 	[xr_4port] = {
 		.flags		= FL_BASE0,
 		.num_ports	= 4,
@@ -347,7 +347,7 @@ static struct pciserial_board xrpciserial_boards[] __devinitdata = {
  *   share_irqs - whether we pass SA_SHIRQ to request_irq().  This option
  *                is unsafe when used on edge-triggered interrupts.
  */
-#define SERIALEXAR_SHARE_IRQS 1 
+#define SERIALEXAR_SHARE_IRQS 1
 unsigned int share_irqs = SERIALEXAR_SHARE_IRQS;
 
 /*
@@ -392,7 +392,7 @@ struct uart_xr_port {
 
 	unsigned char		lsr_saved_flags;
 	unsigned char		msr_saved_flags;
-	
+
 	unsigned short 		deviceid;
 	unsigned char		channelnum;
 	unsigned char       multidrop_address;
@@ -419,7 +419,7 @@ static DEFINE_MUTEX(hash_mutex);	/* Used to walk the hash */
 /*
  * Here we define the default xmit fifo size used for each type of UART.
  */
-#define PORT_MAX_XR 2 
+#define PORT_MAX_XR 2
 #define XRPCIe_TYPE 1 // the second entry that is [1] in the array
 #define XRPCI25x_TYPE 2 // the third entry that is [2] in the array
 
@@ -469,12 +469,12 @@ pci_default_setup(struct serial_private *priv,
 {
 	unsigned int bar, offset = board->first_offset;
 
-	bar = FL_GET_BASE(board->flags);	
+	bar = FL_GET_BASE(board->flags);
 	offset += idx * board->uart_offset;
 	//printk(KERN_INFO "Exar PCIe device 0x%x\n", priv->dev->device);
 	if((priv->dev->device == 0x4354 || priv->dev->device == 0x8354) && (idx >= 4))
 	{
-	    offset += 0x1000; // the ports on expansion device for 0x(4/8)354 sit at bar0+0x2000 offset. 
+	    offset += 0x1000; // the ports on expansion device for 0x(4/8)354 sit at bar0+0x2000 offset.
 			      // So we need to add 0x1000 here as 4*0x400
 	}
 
@@ -489,21 +489,21 @@ pci_default_setup(struct serial_private *priv,
  * This list is ordered alphabetically by vendor then device.
  * Specific entries must come before more generic entries.
  */
-static struct pci_serial_quirk pci_serial_quirks[] = {	
+static struct pci_serial_quirk pci_serial_quirks[] = {
 	{
 		.vendor		= 0x13a8,
 		.device		= 0x358,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
-	
+
 	{
 		.vendor		= 0x13a8,
 		.device		= 0x354,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 
 	{
@@ -511,7 +511,7 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.device		= 0x352,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 
 	{
@@ -519,7 +519,7 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.device		= 0x4354,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 
 	{
@@ -527,7 +527,7 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.device		= 0x8354,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 
 	{
@@ -535,7 +535,7 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.device		= 0x4358,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 
 	{
@@ -543,7 +543,7 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.device		= 0x8358,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 
 	{
@@ -551,15 +551,15 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.device		= 0x258,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
-	
+
 	{
 		.vendor		= 0x13a8,
 		.device		= 0x254,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 
 	{
@@ -567,22 +567,22 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.device		= 0x252,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 		{
 		.vendor		= 0x13a8,
 		.device		= 0x158,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
-	
+
 	{
 		.vendor		= 0x13a8,
 		.device		= 0x154,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 
 	{
@@ -590,7 +590,7 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.device		= 0x152,
 		.subvendor	= PCI_ANY_ID,
 		.subdevice	= PCI_ANY_ID,
-		.setup		= pci_default_setup,	
+		.setup		= pci_default_setup,
 	},
 
 };
@@ -606,7 +606,7 @@ static struct pci_serial_quirk *find_quirk(struct pci_dev *dev)
 
 	for (quirk = pci_serial_quirks; ; quirk++)
 		if (quirk_id_matches(quirk->vendor, dev->vendor) &&
-		    quirk_id_matches(quirk->device, dev->device))		    
+		    quirk_id_matches(quirk->device, dev->device))
 		 	break;
 	return quirk;
 }
@@ -630,7 +630,7 @@ static void serialxr_stop_tx(struct uart_port *port)
 	if (up->ier & UART_IER_THRI) {
 		up->ier &= ~UART_IER_THRI;
 		lcr = serial_in(up, UART_LCR);
-		if (lcr & 0x80) {			
+		if (lcr & 0x80) {
 			printk(KERN_INFO "channelnum %d: serialxr stop tx - LCR = 0x%x", up->channelnum, lcr);
 			serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 		}
@@ -686,15 +686,15 @@ static void serialxr_enable_ms(struct uart_port *port)
 static void
 receive_chars(struct uart_xr_port *up, unsigned int *status)
 {
-#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 9, 0)	
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3, 9, 0)
 	struct uart_port *port = &up->port;
 #else
-	struct tty_struct *tty = up->port.state->port.tty;	
-#endif	
+	struct tty_struct *tty = up->port.state->port.tty;
+#endif
 	unsigned char ch[256], lsr = *status;
 	char flag;
 	int i, lcr, datasize_in_fifo, port_index;
-	unsigned char tmp;		
+	unsigned char tmp;
 	datasize_in_fifo = serial_in(up, XR_17V35X_RXFIFO_CNT);
 	while(datasize_in_fifo!=serial_in(up, XR_17V35X_RXFIFO_CNT))
 	/*Read Receive Fifo count until we get read same value twice*/
@@ -702,26 +702,26 @@ receive_chars(struct uart_xr_port *up, unsigned int *status)
 
   	port_index = up->port.line;
 	flag = TTY_NORMAL;
-  
-	if (unlikely(lsr & (UART_LSR_BI | UART_LSR_PE | UART_LSR_FE | UART_LSR_OE))) 
+
+	if (unlikely(lsr & (UART_LSR_BI | UART_LSR_PE | UART_LSR_FE | UART_LSR_OE)))
 	{
 		/*
 		* Mask off conditions which should be ignored.
 		*/
 		lsr &= up->port.read_status_mask;
-        if (lsr & UART_LSR_OE) 
+        if (lsr & UART_LSR_OE)
 		{
 			printk("OverRun Happen....");
-		} 
-		if (lsr & UART_LSR_BI) 
+		}
+		if (lsr & UART_LSR_BI)
 		{
 			DEBUG_INTR("handling break....");
 			flag = TTY_BREAK;
-		} 
+		}
 		else if (lsr & UART_LSR_PE)
 		{
 			flag = TTY_PARITY;
-			
+
 			if(up->multidrop_mode == 1)
 			{
 				  //memcpy_fromio(ch, up->port.membase + UART_17V35X_RX_OFFSET, datasize_in_fifo);
@@ -742,15 +742,15 @@ receive_chars(struct uart_xr_port *up, unsigned int *status)
      				  if(ch[0] == up->multidrop_address)
      				  {
      				    DEBUG_INTR(" Enable the receiver\n");
-     					//set EFR[4] = 1; enable the shaded bits 
+     					//set EFR[4] = 1; enable the shaded bits
      				    tmp = serial_in(up, XR_17V35X_EXTENDED_EFR);
      				    tmp |=0x10;
      				    serial_out(up, XR_17V35X_EXTENDED_EFR, tmp);
-     				    serial_out(up,XR_17V35X_UART_MSR, 0);//Enable the receiver 
-     				    //set EFR[4] = 0; disable the shaded bits 
+     				    serial_out(up,XR_17V35X_UART_MSR, 0);//Enable the receiver
+     				    //set EFR[4] = 0; disable the shaded bits
      				    tmp = serial_in(up, XR_17V35X_EXTENDED_EFR);
      				    tmp &=~0x10;
-     				    serial_out(up, XR_17V35X_EXTENDED_EFR, tmp); 
+     				    serial_out(up, XR_17V35X_EXTENDED_EFR, tmp);
 						up->is_match_address = 1;
      				  }
 					  else
@@ -767,12 +767,12 @@ receive_chars(struct uart_xr_port *up, unsigned int *status)
 					  else
      				  {
      				    DEBUG_INTR(" Disable the receiver\n");
-     					//set EFR[4] = 1; enable the shaded bits 
+     					//set EFR[4] = 1; enable the shaded bits
      				    tmp = serial_in(up, XR_17V35X_EXTENDED_EFR);
      				    tmp |=0x10;
      				    serial_out(up, XR_17V35X_EXTENDED_EFR, tmp);
-     				    serial_out(up,XR_17V35X_UART_MSR, 0x04);//Disable the receiver 
-     				     //set EFR[4] = 0; disable the shaded bits 
+     				    serial_out(up,XR_17V35X_UART_MSR, 0x04);//Disable the receiver
+     				     //set EFR[4] = 0; disable the shaded bits
      				    tmp = serial_in(up, XR_17V35X_EXTENDED_EFR);
      				    tmp &=~0x10;
      				    serial_out(up, XR_17V35X_EXTENDED_EFR, tmp);
@@ -785,17 +785,17 @@ receive_chars(struct uart_xr_port *up, unsigned int *status)
 			{
 			    printk("handling port<%d> Parity error....(%d)\n",port_index,up->multidrop_mode);
 			}
-			
+
 		}
 		else if (lsr & UART_LSR_FE)
 		{
-		    DEBUG_INTR("handling Frame error....\n");	
+		    DEBUG_INTR("handling Frame error....\n");
 			flag = TTY_FRAME;
 		}
 	}
-	
+
     //memcpy_fromio(ch, up->port.membase + UART_17V35X_RX_OFFSET, datasize_in_fifo);
-			
+
 	//print_hex_dump(KERN_DEBUG,"R:",DUMP_PREFIX_NONE,16,1,ch,datasize_in_fifo,1);
     for(i=0;i<datasize_in_fifo;i++)
     {
@@ -807,7 +807,7 @@ receive_chars(struct uart_xr_port *up, unsigned int *status)
       ch[i]= serial_in(up, XR_17v35x_UART_RHR);
     }
 	up->port.icount.rx+=datasize_in_fifo;
-	
+
 	for(i = 0; i < datasize_in_fifo; i++)
 	{
 		if (uart_handle_sysrq_char(&up->port, ch[i]))
@@ -851,18 +851,18 @@ static void transmit_chars(struct uart_xr_port *up)
 	while (bytes_in_fifo != serial_in(up, XR_17V35X_TXFIFO_CNT))
 		bytes_in_fifo = serial_in(up, XR_17V35X_TXFIFO_CNT);
 
-	// how much buffer is availabe now to write?	
+	// how much buffer is availabe now to write?
 	count = up->port.fifosize - bytes_in_fifo;
-	
+
 	if (uart_circ_chars_pending(xmit) < count)
 		count = uart_circ_chars_pending(xmit);
-		
+
 	do
-	{	
+	{
 		// if the count is more than (tail to end of the buffer), transmit only the rest here.
 		// tail+tmp&(UART_XMIT_SIZE-1) will reset the tail to the starting of the circular buffer
 		if( ((xmit->tail + count) & (UART_XMIT_SIZE-1)) < xmit->tail)
-		{			
+		{
 			tmp = UART_XMIT_SIZE - xmit->tail;
 			//memcpy_toio(up->port.membase + UART_17V35X_TX_OFFSET, &(xmit->buf[xmit->tail]), tmp);
 			ch = (unsigned char *)&(xmit->buf[xmit->tail]);
@@ -873,7 +873,7 @@ static void transmit_chars(struct uart_xr_port *up)
 				if (lcr & 0x80) {
 					printk(KERN_INFO"channelnum %d: transmit_chars1 - LCR = 0x%x", up->channelnum, lcr);
 					serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
-				}				
+				}
 			  serial_out(up, XR_17v35x_UART_THR, ch[i]);
 			}
 			xmit->tail += tmp;
@@ -882,9 +882,9 @@ static void transmit_chars(struct uart_xr_port *up)
 			count	-= tmp;
 		}
 		else
-		{	
+		{
 		    ch = (unsigned char *)&(xmit->buf[xmit->tail]);
-			//memcpy_toio(up->port.membase + UART_17V35X_TX_OFFSET, &(xmit->buf[xmit->tail]), count);	
+			//memcpy_toio(up->port.membase + UART_17V35X_TX_OFFSET, &(xmit->buf[xmit->tail]), count);
 			for(i=0;i < count;i++)
 			{
 				lcr = serial_in(up, UART_LCR);
@@ -893,7 +893,7 @@ static void transmit_chars(struct uart_xr_port *up)
 					serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 				}
 			  serial_out(up, XR_17v35x_UART_THR, ch[i]);
-			}				    
+			}
 			xmit->tail += count;
 			xmit->tail &= UART_XMIT_SIZE - 1;
 			up->port.icount.tx += count;
@@ -901,7 +901,7 @@ static void transmit_chars(struct uart_xr_port *up)
 		}
 
 	}while (count > 0);
-   	
+
 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(&up->port);
 
@@ -992,7 +992,7 @@ static irqreturn_t serialxr_interrupt(int irq, void *dev_id)
 		if (lcr & 0x80) {
 			printk(KERN_INFO"channelnum %d: serialxr interrupt - LCR = 0x%x", up->channelnum, lcr);
 			serial_out(up, UART_LCR, lcr & 0x7F); // ensure LCR bit-7=0 before reading UART_IIR
-		}		
+		}
 		iir = serial_in(up, UART_IIR);
 		if (!(iir & UART_IIR_NO_INT)) {
 			serialxr_handle_port(up);
@@ -1215,8 +1215,8 @@ static void serialxr_set_mctrl(struct uart_port *port, unsigned int mctrl)
 		mcr |= UART_MCR_LOOP;
 
 	mcr = (mcr & up->mcr_mask) | up->mcr_force | up->mcr;
-	
-	efr = serial_in(up, UART_EFR); 
+
+	efr = serial_in(up, UART_EFR);
 	efr = efr & 0xEF;	// clear access to shaded registers so that write to MCR does not change from using DTR to RTS for RS-485 control
 #if   USE_DTR_RS485
        mcr |= 0x04;
@@ -1246,7 +1246,7 @@ static int serialxr_startup(struct uart_port *port)
 	unsigned long flags;
 	unsigned int fctr_reg=0;
 	int retval, lcr;
-		
+
 	up->capabilities = uart_config[up->port.type].flags;
  	serial_out(up, XR_17V35X_EXTENDED_EFR, UART_EFR_ECB);
 	lcr = serial_in(up, UART_LCR);
@@ -1258,7 +1258,7 @@ static int serialxr_startup(struct uart_port *port)
 	/* Set the RX/TX trigger levels */
 	/* These are some default values, the OEMs can change these values
 		* according to their best case scenarios */
-	
+
 	if(up->deviceid > 0x258) // PCIe device
 	{
 		serial_out(up, XR_17V35X_EXTENDED_RXTRG, 128);
@@ -1275,13 +1275,13 @@ static int serialxr_startup(struct uart_port *port)
 	DEBUG_INTR(KERN_INFO "serialxr_startup: FCTR=0x%x",fctr_reg);
 #if ENABLE_RS485
 	serial_out(up, XR_17V35X_EXTENDED_FCTR, fctr_reg|XR_17V35X_FCTR_TRGD | XR_17V35X_FCTR_RTS_8DELAY | XR_17V35x_FCTR_RS485);
-#if USE_DTR_RS485	
+#if USE_DTR_RS485
 	serial_out(up, UART_MCR, 0x04);  //use DTR for Auto RS-485 Control
-#endif	
+#endif
 #else
 	serial_out(up, XR_17V35X_EXTENDED_FCTR, (fctr_reg|XR_17V35X_FCTR_TRGD | XR_17V35X_FCTR_RTS_8DELAY)&0xDF);
 #endif
-	
+
 
 	serial_out(up, UART_LCR, 0);
 
@@ -1306,7 +1306,7 @@ static int serialxr_startup(struct uart_port *port)
 		serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 	}
 	serial_out(up, UART_FCR, 0);
-	
+
 	/*
 	 * Clear the interrupt registers.
 	 */
@@ -1328,7 +1328,7 @@ if(port->irq) {
 	serial_out(up, UART_LCR, UART_LCR_WLEN8);
 
 	spin_lock_irqsave(&up->port.lock, flags);
-		
+
 	/*
 	* Most PC uarts need OUT2 raised to enable interrupts.
 	*/
@@ -1361,7 +1361,7 @@ if(port->irq) {
 	(void) serial_in(up, UART_IIR);
 	(void) serial_in(up, UART_MSR);
          /* add INT0 clear */
-        serial_in(up,0x80); 
+        serial_in(up,0x80);
 	return 0;
 }
 
@@ -1372,7 +1372,7 @@ static void serialxr_shutdown(struct uart_port *port)
 	unsigned char lsr;
 	int i = 0;
 	int lcr;
-	
+
 	while(1)
 	{
 	   i++;
@@ -1383,9 +1383,9 @@ static void serialxr_shutdown(struct uart_port *port)
 	   	  break;
 	   msleep(1);
 	   if(i>1000) break;
-	   
-	}  
-	
+
+	}
+
 	/*
 	 * Disable interrupts from this port
 	 */
@@ -1398,7 +1398,7 @@ static void serialxr_shutdown(struct uart_port *port)
 	serial_out(up, UART_IER, 0);
 
 	spin_lock_irqsave(&up->port.lock, flags);
-	
+
 	up->port.mctrl &= ~TIOCM_OUT2;
 
 	serialxr_set_mctrl(&up->port, up->port.mctrl);
@@ -1445,10 +1445,10 @@ static unsigned int uart_get_divisor_exar(struct uart_port *port, unsigned int b
 			if(low_baudrate_mode)
 			   quot = DIV_ROUND_CLOSEST(port->uartclk/4, quot_coeff * baud);
 			else
-			   quot = DIV_ROUND_CLOSEST(port->uartclk, quot_coeff * baud);	
+			   quot = DIV_ROUND_CLOSEST(port->uartclk, quot_coeff * baud);
 		}
-	
-	
+
+
 
 //	DEBUG_INTR(KERN_INFO "uart_get_divisor_exar:UartClk=%d QuotCoeff=0x%x",port->uartclk,quot_coeff);
 	return quot;
@@ -1476,12 +1476,12 @@ serialxr_set_special_baudrate(struct uart_port *port,unsigned int special_baudra
 	unsigned int reg_read;
 	int port_index = up->channelnum;
 	printk(KERN_INFO "Enter in serialxr_set non-standard baudrate:%d channelnum:%d\n",special_baudrate,up->channelnum);
-	
+
 	baud = special_baudrate/*uart_get_baud_rate(port, termios, old, 0, port->uartclk/4)*/;
     lcr_bak = serial_in(up, UART_LCR);
 	val_4xmode = serial_in(up, XR_17V35X_4XMODE);
 	val_8xmode = serial_in(up, XR_17V35X_8XMODE);
-	    	
+
 	if((port_index > 15)||(port_index < 0))
 	{
 	   return;
@@ -1501,12 +1501,12 @@ serialxr_set_special_baudrate(struct uart_port *port,unsigned int special_baudra
 	 	//Do nothing
 	 	break;
 	}
-	
-		
+
+
 	if(baud < 12500000/16)
 	{//using the 16x mode
 	      val_4xmode &=~(1 << port_index);
-	      val_8xmode &=~(1 << port_index);	
+	      val_8xmode &=~(1 << port_index);
 	      quot_coeff = 16;
 	      printk(KERN_INFO "Using the 16x Mode\n");
 	}
@@ -1517,7 +1517,7 @@ serialxr_set_special_baudrate(struct uart_port *port,unsigned int special_baudra
 		  quot_coeff = 8;
 		  printk(KERN_INFO "Using the 8x Mode\n");
 	}
-	else 
+	else
 	{//using the 4x mode
 	   val_4xmode |=(1 << port_index);
 	   val_8xmode &=~(1 << port_index);
@@ -1527,7 +1527,7 @@ serialxr_set_special_baudrate(struct uart_port *port,unsigned int special_baudra
 
 	serial_out(up, XR_17V35X_8XMODE, val_8xmode);
 	serial_out(up, XR_17V35X_4XMODE, val_4xmode);
-	
+
 	quot = serialxr_get_divisor(port, baud);
 	if(!((up->deviceid == 0x152)||(up->deviceid == 0x154)||(up->deviceid == 0x158)))
 	{
@@ -1536,25 +1536,25 @@ serialxr_set_special_baudrate(struct uart_port *port,unsigned int special_baudra
 	    if(quot_coeff == 16)
 	    {
 	        quot_16 = DIV_ROUND_CLOSEST(port->uartclk, baud);
-		 quot_fraction = quot_16 & 0x0f;	
+		 quot_fraction = quot_16 & 0x0f;
 		 quot = (quot_16 >>4);
-		
+
 	    }
 	    else if(quot_coeff == 8)
 	    {
 	         quot_16 = DIV_ROUND_CLOSEST(port->uartclk*2, baud);
-		  quot_fraction = quot_16 & 0x0f;	
+		  quot_fraction = quot_16 & 0x0f;
 		  quot = (quot_16 >>4);
 	    }
 	    else if(quot_coeff == 4)
 	    {
 	         quot_16 = DIV_ROUND_CLOSEST(port->uartclk*4, baud);
-		  quot_fraction = quot_16 & 0x0f;	
+		  quot_fraction = quot_16 & 0x0f;
 		  quot = (quot_16 >>4);
 	    }
 	    else
 	    {
-	       
+
 	    }
        }
     serial_out(up, UART_LCR, lcr_bak | UART_LCR_DLAB);/* set DLAB */
@@ -1568,7 +1568,7 @@ serialxr_set_special_baudrate(struct uart_port *port,unsigned int special_baudra
 	else
 	{
 	    reg_read=(serial_in(up, XR_17V35X_UART_DLD)&0xF0);
-	    DEBUG_INTR(KERN_INFO "serialxr_set_special_baudrate: quot =0x%x quot_fraction=0x%x DLD_reg=0x%x\n",quot,quot_fraction,reg_read);		
+	    DEBUG_INTR(KERN_INFO "serialxr_set_special_baudrate: quot =0x%x quot_fraction=0x%x DLD_reg=0x%x\n",quot,quot_fraction,reg_read);
 	    serial_out(up, XR_17V35X_UART_DLD, quot_fraction | reg_read);
 	    reg_read=serial_in(up, XR_17V35X_UART_DLD);
 	 }
@@ -1592,7 +1592,7 @@ unsigned char efr,mcr;
 int lcr;
 
 int port_index = up->channelnum;
-switch (termios->c_cflag & CSIZE) 
+switch (termios->c_cflag & CSIZE)
 {
 case CS5:
 		cval = 0x00;
@@ -1629,7 +1629,7 @@ printk(KERN_INFO "\nserialxr_set_termios: Port Index:%d c_ispeed:%d c_ospeed:%d 
 
 val_4xmode = serial_in(up, XR_17V35X_4XMODE);
 val_8xmode = serial_in(up, XR_17V35X_8XMODE);
-    	
+
 if((port_index > 15)||(port_index < 0))
 {
    return;
@@ -1653,32 +1653,32 @@ switch(up->deviceid)
 
 if(baud < 120)
 {
-   //set EFR[4] = 1; enable the shaded bits 
+   //set EFR[4] = 1; enable the shaded bits
    efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
    serial_out(up, XR_17V35X_EXTENDED_EFR, efr | 0x10);
    mcr=serial_in(up, UART_MCR);
-   serial_out(up, UART_MCR, mcr | 0x80 );//set the prescaler (MCR bit-7 = 1, requires EFR bit-4 = 1) to divide the clock by 4.  
+   serial_out(up, UART_MCR, mcr | 0x80 );//set the prescaler (MCR bit-7 = 1, requires EFR bit-4 = 1) to divide the clock by 4.
    //Restore the EFR Value
    serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
    low_baudrate_mode = 1;
 }
 else
 {
-   //set EFR[4] = 1; enable the shaded bits 
+   //set EFR[4] = 1; enable the shaded bits
    efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
    serial_out(up, XR_17V35X_EXTENDED_EFR, efr | 0x10);
    mcr=serial_in(up, UART_MCR);
-   serial_out(up, UART_MCR, mcr & 0x7f );//clr the prescaler (MCR bit-7 = 1, requires EFR bit-4 = 1) to divide the clock by 1.  
+   serial_out(up, UART_MCR, mcr & 0x7f );//clr the prescaler (MCR bit-7 = 1, requires EFR bit-4 = 1) to divide the clock by 1.
    //Restore the EFR Value
    serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
    low_baudrate_mode = 0;
 }
 
-	
+
 if(baud < 12500000/16)
 {//using the 16x mode
       val_4xmode &=~(1 << port_index);
-      val_8xmode &=~(1 << port_index);	
+      val_8xmode &=~(1 << port_index);
       quot_coeff = 16;
       printk(KERN_INFO "Using the 16x Mode\n");
 }
@@ -1689,7 +1689,7 @@ else if((baud >= 12500000/16)&&(baud < 12500000/4))
 	  quot_coeff = 8;
 	  printk(KERN_INFO "Using the 8x Mode\n");
 }
-else 
+else
 {//using the 4x mode
    val_4xmode |=(1 << port_index);
    val_8xmode &=~(1 << port_index);
@@ -1700,20 +1700,20 @@ serial_out(up, XR_17V35X_8XMODE, val_8xmode);
 serial_out(up, XR_17V35X_4XMODE, val_4xmode);
 DEBUG_INTR(KERN_INFO "XR_17V35X_4XMODE:%d \n",serial_in(up, XR_17V35X_4XMODE));
 DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
-	
+
 	quot = serialxr_get_divisor(port, baud);
 	if(!((up->deviceid == 0x152)||(up->deviceid == 0x154)||(up->deviceid == 0x158)))
 	 {
 	    DEBUG_INTR(KERN_INFO "XR_17V35X uartclk:%d Quot=0x%x\n",port->uartclk,quot);
 	    //#ifdef DIVISOR_CHANGED
 	    if((port->uartclk/baud) > (quot_coeff*quot))
-	    {	
+	    {
 		if(quot_coeff==16)  quot_fraction = ( (port->uartclk/baud) - (quot_coeff*quot));
 		else if(quot_coeff==8) quot_fraction = ( (port->uartclk/baud) - (quot_coeff*quot))*2;
 		else if(quot_coeff==4) quot_fraction = ( (port->uartclk/baud) - (quot_coeff*quot))*4;
 	    }
 	    else if(quot > 1)
-	    {	
+	    {
 	       quot--;
 	       if(quot_coeff==16)  quot_fraction = ( (port->uartclk/baud) - (quot_coeff*quot));
 	       else if(quot_coeff==8) quot_fraction = ( (port->uartclk/baud) - (quot_coeff*quot))*2;
@@ -1727,7 +1727,7 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 
 	    if(quot_fraction>=0x10) quot_fraction=0x0f;
 	 }
-//#endif	
+//#endif
 	/*
 	 * Ok, we're now changing the port state.  Do it with
 	 * interrupts disabled.
@@ -1785,18 +1785,18 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 	if(termios->c_cflag & CRTSCTS)
 	{
 	    serial_out(up, XR_17V35X_EXTENDED_EFR, reg_read|0xC0);
-	    printk(KERN_INFO "Hardware Flow Control Enabled");	    
+	    printk(KERN_INFO "Hardware Flow Control Enabled");
 	}
 	 else
 	 {
 	       serial_out(up, XR_17V35X_EXTENDED_EFR, reg_read & 0x3F);
-	       printk(KERN_INFO "Hardware Flow Control Disabled\n");	    
+	       printk(KERN_INFO "Hardware Flow Control Disabled\n");
 	 }
-	
+
 	/*
 	*	Auto XON/XOFF software flow control flags
 	*/
-	
+
 	serial_out(up, XR_17V35X_UART_XON1,0x11); //Initializing XON1
 	serial_out(up, XR_17V35X_UART_XOFF1,0x13); //Initializing XOFF1
 
@@ -1805,14 +1805,14 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 		serial_out(up, XR_17V35X_EXTENDED_EFR, (reg_read) | 0x0A );
 		printk(KERN_INFO "Software Flow Control Enabled\n");
 	}
-	else 
+	else
 	{
 		serial_out(up, XR_17V35X_EXTENDED_EFR, (reg_read) & 0xF0 );
 		printk(KERN_INFO "No Software Flow Control\n");
 	}
-	
+
 	reg_read=serial_in(up, XR_17V35X_EXTENDED_EFR);
-	
+
 	if((termios->c_iflag) & IXANY)
 	{
 		serial_out(up, XR_17V35X_EXTENDED_EFR, ((termios->c_iflag) & IXOFF)||((termios->c_iflag) & IXON)?((reg_read) | 0x1A):((reg_read) | 0x10));
@@ -1821,7 +1821,7 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 		serial_out(up, XR_17V35X_EXTENDED_EFR, (reg_read) & 0xEF );
 		printk(KERN_INFO "AUTO XANY Enabled\n");
 	}
-	else 
+	else
 	{
 		serial_out(up, XR_17V35X_EXTENDED_EFR, (reg_read) | 0x10 );
 		reg_read=serial_in(up, UART_MCR);
@@ -1830,11 +1830,11 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 		serial_out(up, XR_17V35X_EXTENDED_EFR, (reg_read) & 0xEF );
 		printk(KERN_INFO "AUTO XANY NOT Enabled\n");
 	}
-	
+
 //---------------------------------------------------------------------------//
-	
+
 	serial_out(up, UART_LCR, cval | UART_LCR_DLAB);/* set DLAB */
-	
+
 	serial_out(up, UART_DLL, quot & 0xff);		/* LS of divisor */
 	serial_out(up, UART_DLM, quot >> 8);		/* MS of divisor */
 	//Fractional baud rate support
@@ -1845,13 +1845,13 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 	else
 	{
 	  reg_read=(serial_in(up, XR_17V35X_UART_DLD)&0xF0);
-	  DEBUG_INTR(KERN_INFO "serialxr_set_termios: quot =0x%x quot_fraction=0x%x DLD_reg=0x%x\n",quot,quot_fraction,reg_read);		
+	  DEBUG_INTR(KERN_INFO "serialxr_set_termios: quot =0x%x quot_fraction=0x%x DLD_reg=0x%x\n",quot,quot_fraction,reg_read);
 	  serial_out(up, XR_17V35X_UART_DLD, quot_fraction | reg_read);
 	  reg_read=serial_in(up, XR_17V35X_UART_DLD);
 	}
 	serial_out(up, UART_LCR, cval);		/* reset DLAB */
 	up->lcr = cval;						/* Save LCR */
-	
+
 	lcr = serial_in(up, UART_LCR);
 	if (lcr & 0x80) {
 		printk(KERN_INFO"channelnum %d: serialxr_set_termios2 - LCR = 0x%x", up->channelnum, lcr);
@@ -1863,14 +1863,14 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 	*/
 	if((up->deviceid == 0x354)||(up->deviceid == 0x4354)||(up->deviceid == 0x8354))
 	{
-		serial_out(up, XR_17V35x_MPIOSEL_7_0,0x0FF); //0x0ff= ALL INPUTS	
+		serial_out(up, XR_17V35x_MPIOSEL_7_0,0x0FF); //0x0ff= ALL INPUTS
 	}
 	else if((up->deviceid == 0x358)||(up->deviceid == 0x4358)||(up->deviceid == 0x8358))
 	{
 		serial_out(up, XR_17V35x_MPIOSEL_7_0,0x0FF); //0x0ff= ALL INPUTS
 		serial_out(up, XR_17V35x_MPIOSEL_15_8,0x0FF); //0x0ff= ALL INPUTS
 	}
-	
+
 	serialxr_set_mctrl(&up->port, up->port.mctrl);
 #if ENABLE_INTERNAL_LOOPBACK
 	reg_read=serial_in(up, UART_MCR);
@@ -1883,7 +1883,7 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 /*
  *      EXAR ioctls
  */
-//#define 	FIOQSIZE		0x5460 
+//#define 	FIOQSIZE		0x5460
 #define		EXAR_READ_REG      	(FIOQSIZE + 1)
 #define 	EXAR_WRITE_REG     	(FIOQSIZE + 2)
 
@@ -1901,7 +1901,7 @@ struct xrioctl_rw_reg {
 /*
  * This function is used to handle Exar Device specific ioctl calls
  * The user level application should have defined the above ioctl
- * commands with the above values to access these ioctls and the 
+ * commands with the above values to access these ioctls and the
  * input parameters for these ioctls should be struct xrioctl_rw_reg
  * The Ioctl functioning is pretty much self explanatory here in the code,
  * and the register values should be between 0 to XR_17V35X_EXTENDED_RXTRG
@@ -1927,7 +1927,7 @@ serialxr_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 		DEBUG_INTR(KERN_INFO "serialxr_ioctl read reg[0x%02x]=0x%02x \n",ioctlrwarg.reg,ioctlrwarg.regvalue);
 		ret = 0;
 		break;
-		
+
 		case EXAR_WRITE_REG:
 		if (copy_from_user(&ioctlrwarg, (void *)arg, sizeof(ioctlrwarg)))
 			return -EFAULT;
@@ -1938,20 +1938,20 @@ serialxr_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 		case EXAR_SET_MULTIDROP_MODE_NORMAL:
 		if (copy_from_user(&address, (void *)arg, 1))
 			return -EFAULT;
-		   
+
 		    up->multidrop_address = address;
-			//set EFR[4] = 1; enable the shaded bits 
+			//set EFR[4] = 1; enable the shaded bits
 			efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
 			efr |=0x10;
 			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
-			
+
 			serial_out(up,XR_17V35X_UART_MSR, 0x04);//Disable the receiver with mode=0
-            //set EFR[4] =0; disable the shaded bits 
+            //set EFR[4] =0; disable the shaded bits
 			efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
 			efr &=~0x10;
-			serial_out(up, XR_17V35X_EXTENDED_EFR, efr); 
-			
-			
+			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
+
+
 			lcr_bak = serial_in(up, UART_LCR);
 			tmp = 0x80 | lcr_bak | 0x38; //LCR[7]=1 for access DLD  LCR[5:3] = '111'  for Forced parity to space "0"
 			serial_out(up, UART_LCR, tmp);
@@ -1959,112 +1959,112 @@ serialxr_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 			dld = serial_in(up, XR_17V35X_UART_DLD);
 			dld |= 0x40;
 			serial_out(up, XR_17V35X_UART_DLD, dld);
-			
+
 			//set EFR[5] = 0; disable the special char Select
 			efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
 			efr &=~0x20;
 			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
-			
+
 		    lcr_bak = serial_in(up, UART_LCR);//set LCR[7]=0
 			lcr_bak &=~0x80;
 			serial_out(up, UART_LCR, lcr_bak);
-			
+
 			ret = 0;
-			up->multidrop_mode = 1;//for enable multidrop normal mode 
+			up->multidrop_mode = 1;//for enable multidrop normal mode
 			up->is_match_address = 0;
 			DEBUG_INTR(KERN_INFO "User request EXAR_SET_MULTIDROP_MODE_NORMAL addr:%d \n",up->multidrop_address);
 		    break;
-		
+
 		case EXAR_SET_MULTIDROP_MODE_AUTO:
 		if (copy_from_user(&address, (void *)arg, 1))
 			return -EFAULT;
 		    up->multidrop_address = address;
-			
+
 			serial_out(up, XR_17V35X_UART_XOFF2,address);
-			
-            //set EFR[4] = 1; enable the shaded bits 
+
+            //set EFR[4] = 1; enable the shaded bits
 			efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
 			efr |=0x10;
 			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
-			
+
 			serial_out(up,XR_17V35X_UART_MSR, 0x04);//Disable the receiver with mode=0
-			 //set EFR[4] =0; disable the shaded bits 
+			 //set EFR[4] =0; disable the shaded bits
 			efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
 			efr &=~0x10;
-			serial_out(up, XR_17V35X_EXTENDED_EFR, efr); 
-			
+			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
+
 		    lcr_bak = serial_in(up, UART_LCR);
 			tmp = 0x80 | lcr_bak | 0x38; //LCR[7]=1 for access DLD  LCR[5:3] = '111'  for Forced parity to space "0"
 			serial_out(up, UART_LCR, tmp);
-			
+
 			//set the DLD[6] = 1 enable Multidrop mode
 			dld = serial_in(up, XR_17V35X_UART_DLD);
 			dld |= 0x40;
 			serial_out(up, XR_17V35X_UART_DLD, dld);
-			
+
 			//set EFR[5] = 1; enable the special char Select
 			efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
 			efr |=0x20;
 			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
 			//printk(KERN_INFO "UART_EFR=0x%02x\n",serial_in(up, XR_17V35X_EXTENDED_EFR));
-						
-			up->multidrop_mode = 2;//for enable multidrop auto mode 
+
+			up->multidrop_mode = 2;//for enable multidrop auto mode
 
 			lcr_bak = serial_in(up, UART_LCR);//set LCR[7]=0
 			lcr_bak &=~0x80;
 			serial_out(up, UART_LCR, lcr_bak);
-			
+
 			DEBUG_INTR(KERN_INFO "User request EXAR_SET_MULTIDROP_MODE_AUTO addr:%d \n",up->multidrop_address);
-			ret = 0;	
+			ret = 0;
 			break;
 		case EXAR_SET_REMOVE_MULTIDROP_MODE:
 			//set the DLD[6] = 0 disable Multidrop mode
 			lcr_bak = serial_in(up, UART_LCR);
 			tmp = 0x80 | lcr_bak; //LCR[7]=1 for access DLD
-			
+
 			dld = serial_in(up, XR_17V35X_UART_DLD);
 			dld &=~0x40;//Disable Multidrop mode
 			serial_out(up, XR_17V35X_UART_DLD, tmp);
-					
+
 			efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
 			efr &=~0x20;//disable the special char select
-			efr |= 0x10; //enable the shaded bits 
+			efr |= 0x10; //enable the shaded bits
 			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
 
-			
+
 			serial_out(up,XR_17V35X_UART_MSR, 0x00);//Enable the receiver with mode=0
-			
-             //set EFR[4] =0; disable the shaded bits 
+
+             //set EFR[4] =0; disable the shaded bits
 			efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
 			efr &=~0x10;
-			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);  
-			
-            lcr_bak &=~0x38;//LCR[5:3] = '000'  
-            lcr_bak &=~0x80;//Set LCR[7] = 0 
+			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
+
+            lcr_bak &=~0x38;//LCR[5:3] = '000'
+            lcr_bak &=~0x80;//Set LCR[7] = 0
 			serial_out(up, UART_LCR, lcr_bak);
 			up->multidrop_mode = 0;
 			up->is_match_address = 0;
-		    ret = 0;	
-		   
+		    ret = 0;
+
 		break;
 		case EXAR_SET_NON_STANDARD_BAUDRATE:
 		if (copy_from_user(&any_baudrate, (void *)arg, sizeof(unsigned int)))
 		{
-		   return -EFAULT;	
+		   return -EFAULT;
 		}
 		serialxr_set_special_baudrate(port,any_baudrate);
 		break;
-		
+
 	}
-	
+
 	return ret;
 }
-	      
+
 static void
 serialxr_pm(struct uart_port *port, unsigned int state,
 	      unsigned int oldstate)
 {
-	int lcr;	
+	int lcr;
 	struct uart_xr_port *up = (struct uart_xr_port *)port;
 	if (state) {
 		/* sleep */
@@ -2093,7 +2093,7 @@ serialxr_pm(struct uart_port *port, unsigned int state,
 }
 
 static void serialxr_release_port(struct uart_port *port)
-{	
+{
 }
 
 static int serialxr_request_port(struct uart_port *port)
@@ -2103,10 +2103,10 @@ static int serialxr_request_port(struct uart_port *port)
 
 static void serialxr_config_port(struct uart_port *port, int flags)
 {
-	struct uart_xr_port *up = (struct uart_xr_port *)port;	
+	struct uart_xr_port *up = (struct uart_xr_port *)port;
 
 	if (flags & UART_CONFIG_TYPE)
-	{	
+	{
 		if(up->deviceid > 0x258) // PCIe device
 		{
 			up->port.type = XRPCIe_TYPE;
@@ -2116,7 +2116,7 @@ static void serialxr_config_port(struct uart_port *port, int flags)
 			up->port.type = XRPCI25x_TYPE;
 		}
 		up->port.fifosize = uart_config[up->port.type].dfl_xmit_fifo_size;
-		up->capabilities = uart_config[up->port.type].flags;	
+		up->capabilities = uart_config[up->port.type].flags;
 	}
 }
 
@@ -2124,7 +2124,7 @@ static const char *
 serialxr_type(struct uart_port *port)
 {
 	int type = port->type;
-	
+
 	if (type >= ARRAY_SIZE(uart_config))
 		type = 0;
 	return uart_config[type].name;
@@ -2256,8 +2256,8 @@ int serialxr_register_port(struct uart_port *port, unsigned short deviceid, unsi
 		uart->mcr_mask = ~(0x0); //~ALPHA_KLUDGE_MCR;
 		uart->mcr_force = 0; // ALPHA_KLUDGE_MCR;
 
-		uart->port.ops = &serialxr_pops;		
-		
+		uart->port.ops = &serialxr_pops;
+
 		ret = uart_add_one_port(&xr_uart_driver, &uart->port);
 #if 0
 		if (ret == 0)
@@ -2287,7 +2287,7 @@ init_one_xrpciserialcard(struct pci_dev *dev, const struct pci_device_id *ent)
 	struct pci_serial_quirk *quirk;
 	struct uart_port serial_port;
 	int rc, nr_ports, i;
-			
+
 	if (ent->driver_data >= ARRAY_SIZE(xrpciserial_boards)) {
 		printk(KERN_INFO "pci_init_one: invalid driver_data: %ld\n",
 			ent->driver_data);
@@ -2299,7 +2299,7 @@ init_one_xrpciserialcard(struct pci_dev *dev, const struct pci_device_id *ent)
 	rc = pci_enable_device(dev);
 	if (rc)
 		return rc;
-	
+
 	nr_ports = board->num_ports;
 
 	/*
@@ -2352,13 +2352,13 @@ init_one_xrpciserialcard(struct pci_dev *dev, const struct pci_device_id *ent)
 		// setup the uartclock for the devices on expansion slot
 		switch(priv->dev->device)
 		{
-		    case 0x4354:	      
+		    case 0x4354:
 		    case 0x8354:
 		      if(i >= 4)
 			serial_port.uartclk = 62500000; // half the clock speed of the main chip (which is 125MHz)
 		      break;
 
-		    case 0x4358:	      
+		    case 0x4358:
 		    case 0x8358:
 		      if(i >= 8) // epansions slot ports
 			serial_port.uartclk = 62500000; // half the clock speed of the main chip (which is 125MHz)
@@ -2373,12 +2373,12 @@ init_one_xrpciserialcard(struct pci_dev *dev, const struct pci_device_id *ent)
 			printk(KERN_WARNING "Couldn't register serial port %s: %d\n", pci_name(dev), i);
 			break;
 		}
-				
+
 		printk(KERN_WARNING "init_one_xrpciserialcard line:%d\n",serial_port.line);
 		priv->uart_index[i] = serial_port.line;
 		priv->line[i] = rc;
-		
-		
+
+
 	}
 
 	priv->nr = i;
@@ -2413,7 +2413,7 @@ void serialxr_unregister_port(int line)
 	  serial_unlink_irq_chain(uart);
 #endif
 	uart_remove_one_port(&xr_uart_driver, &uart->port);
-	uart->port.dev = NULL;	
+	uart->port.dev = NULL;
 	mutex_unlock(&serial_mutex);
 }
 
@@ -2427,8 +2427,8 @@ void pciserial_remove_ports(struct serial_private *priv)
 	  	printk(KERN_WARNING "pciserial_remove_ports dev:%p port_num:%d\n",priv->dev,priv->uart_index[i]);
 		//serialxr_unregister_port(priv->line[i]);
 		serialxr_unregister_port(priv->uart_index[i]);
-		
-	}	
+
+	}
 
 	for (i = 0; i < PCI_NUM_BAR_RESOURCES; i++) {
 		if (priv->remapped_bar[i])
@@ -2524,7 +2524,7 @@ static int __init serialxr_init(void)
 	if (ret < 0)
 		uart_unregister_driver(&xr_uart_driver);
 
-	return ret;	
+	return ret;
 }
 
 static void __exit serialxr_exit(void)

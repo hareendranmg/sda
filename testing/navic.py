@@ -10,16 +10,16 @@ if serial_port:
     try:
         while True:
             command = bytearray()
-            
+
             command.append(0x0F)
             serial_port.write(command)
-            time.sleep(0.1)
+            # time.sleep(0.1)
 
-            received_data = serial_port.read(10)
+            received_data = serial_port.read(22)
             hex_string = ' '.join([format(byte, '02x') for byte in received_data])
 
             print(f"Received: {hex_string}")
-            time.sleep(1)
+            # time.sleep(0.1)
     finally:
         # Close the serial port in a finally block to ensure it's closed even if an exception occurs
         serial_port.close()
