@@ -58,17 +58,9 @@ int main()
 
     for (;;)
     {
-        // clock_gettime(CLOCK_MONOTONIC, &start_time);
-        // gpiod_ctxless_set_value(chip, offset, 1, false, "gpio-toggle", NULL, NULL);
-        // clock_gettime(CLOCK_MONOTONIC, &end_time);
-        // elapsed_time_us = (end_time.tv_sec - start_time.tv_sec) * 1000000 + (end_time.tv_nsec - start_time.tv_nsec) / 1000;
-        // printf("Time taken for GPIO toggle: %ld microseconds\n", elapsed_time_us);
-
-        // Record the start time for serial write
         clock_gettime(CLOCK_MONOTONIC, &start_time);
         ssize_t bytes_written = write(fd, &data_to_write, 1);
         ssize_t bytes_read = read(fd, buffer, sizeof(buffer));
-
 
         if (bytes_read < 0)
         {
@@ -77,15 +69,13 @@ int main()
             return 1;
         }
 
-        // Print the read data
-        // printf("Read data: ");
-        // for (ssize_t i = 0; i < bytes_read; ++i)
-        // {
-        //     printf("%02X ", (unsigned char)buffer[i]);
-        // }
-        // printf("\n");
+        printf("Read data: ");
+        for (ssize_t i = 0; i < bytes_read; ++i)
+        {
+            printf("%02X ", (unsigned char)buffer[i]);
+        }
+        printf("\n");
 
-        // Optional: Add a delay between consecutive writes
         usleep(1000); // 1000 microseconds delay
         clock_gettime(CLOCK_MONOTONIC, &end_time);
         elapsed_time_us = (end_time.tv_sec - start_time.tv_sec) * 1000000 + (end_time.tv_nsec - start_time.tv_nsec) / 1000;
