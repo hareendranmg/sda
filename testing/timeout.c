@@ -47,32 +47,65 @@ int setupSerialPort(const char *portName)
 int main()
 {
     int serialPortFD = setupSerialPort(SERIAL_PORT);
-    unsigned char hexCommand = 0x0F;
+    unsigned char hexCommand1 = 0x0F;
+    unsigned char hexCommand2 = 0x1E;
 
     for (;;)
     {
-        write(serialPortFD, &hexCommand, sizeof(hexCommand));
+        write(serialPortFD, &hexCommand1, sizeof(hexCommand1));
         fd_set readSet;
         FD_ZERO(&readSet);
         FD_SET(serialPortFD, &readSet);
 
         struct timeval timeout;
         timeout.tv_sec = 0;
-        timeout.tv_usec = 10;
-        int selectResult = select(serialPortFD + 1, &readSet, NULL, NULL, &timeout);
-        if (selectResult == -1)
+        timeout.tv_usec = 20;
+        int selectResult1 = select(serialPortFD + 1, &readSet, NULL, NULL, &timeout);
+        if (selectResult1 == -1)
         {
             perror("Error from select");
             exit(EXIT_FAILURE);
         }
-        else if (selectResult > 0)
+        else if (selectResult1 > 0)
         {
             char buffer[22];
             ssize_t bytesRead = read(serialPortFD, buffer, sizeof(buffer));
 
             if (bytesRead > 0)
             {
-                printf("Received: ");
+                printf("Received 0F: ");
+                for (ssize_t i = 0; i < bytesRead; ++i)
+                {
+                    printf("%02X ", (unsigned char)buffer[i]);
+                }
+                printf("\n");
+            }
+            else
+            {
+                printf("Error reading from serial port or incorrect number of bytes received\n");
+            }
+        }
+        else
+        {
+            printf("Timeout occurred or no data available\n");
+        }
+        usleep(10);
+        write(serialPortFD, &hexCommand2, sizeof(hexCommand2));
+
+        int selectResult2 = select(serialPortFD + 1, &readSet, NULL, NULL, &timeout);
+        if (selectResult2 == -1)
+        {
+            perror("Error from select");
+            exit(EXIT_FAILURE);
+        }
+        else if (selectResult2 > 0)
+        {
+            char buffer[22];
+            ssize_t bytesRead = read(serialPortFD, buffer, sizeof(buffer));
+
+            if (bytesRead > 0)
+            {
+                printf("Received 1E: ");
                 for (ssize_t i = 0; i < bytesRead; ++i)
                 {
                     printf("%02X ", (unsigned char)buffer[i]);
