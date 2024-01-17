@@ -5,8 +5,11 @@
 #include <termios.h>
 #include <unistd.h>
 #include <signal.h>
+// #include <sys/time.h>
+#include <time.h>
+#include <sched.h>
+#include <inttypes.h>
 
-#define BUFFER_SIZE 1024
 #define MAX_FILE_PATH 256
 
 volatile sig_atomic_t stop_flag = 0;
@@ -118,7 +121,7 @@ void set_serial_parameters(int serial_fd, speed_t baudRate, char parity, int dat
         exit(EXIT_FAILURE);
     }
 
-    if (tcsetattr(serial_fd, TCSANOW, &tty) != 0)
+    if (tcsetattr(serial_fd, TCSAFLUSH, &tty) != 0)
     {
         perror("Error setting serial port attributes");
         cleanup(serial_fd, NULL);
@@ -140,6 +143,17 @@ FILE *open_output_file(const char *outputFileName, const char *fileExtension, in
     return outputFile;
 }
 
+void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size)
+{
+    long ms = ts->tv_nsec / 1000000;
+    long us = (ts->tv_nsec % 1000000) / 1000;
+
+    struct tm tm_info;
+    localtime_r(&(ts->tv_sec), &tm_info);
+
+    snprintf(output, size, "%02d:%02d:%02d.%03ld.%03ld", tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, ms, us);
+}
+
 int main(int argc, char *argv[])
 {
     printf("argc: %d\n", argc);
@@ -147,11 +161,11 @@ int main(int argc, char *argv[])
     {
         printf("argv[%d]: %s\n", i, argv[i]);
     }
-    if (argc != 9)
-    {
-        fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits> <filesize> <file_extension>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
+    // if (argc != 9)
+    // {
+    //     fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits> <filesize> <file_extension>\n", argv[0]);
+    //     return EXIT_FAILURE;
+    // }
 
     const char *serialPortName = argv[1];
     const char *outputFileName = argv[2];
@@ -162,19 +176,6 @@ int main(int argc, char *argv[])
     size_t filesize = atoi(argv[7]);
     const char *fileExtension = argv[8];
 
-    if (baudRate < 0 || baudRate > 4000000)
-    {
-        fprintf(stderr, "Invalid baud rate\n");
-        return EXIT_FAILURE;
-    }
-
-    // the filesize is in bytes, we need to check if it is fall within the range of 1MB to 1GB
-    // if (filesize < 1000000 || filesize > 1000000000)
-    // {
-    //     fprintf(stderr, "Invalid filesize\n");
-    //     return EXIT_FAILURE;
-    // }
-
     // Execute the Python script before opening the serial port
     char python_command[MAX_FILE_PATH];
     snprintf(python_command, sizeof(python_command),
@@ -184,7 +185,12 @@ int main(int argc, char *argv[])
 
     int serial_fd = open_serial_port(serialPortName);
 
-    FILE *outputFile = open_output_file(outputFileName, fileExtension, fileCounter);
+    if (serial_fd == -1)
+    {
+        perror("Error opening serial port");
+        cleanup(-1, NULL); // Passing -1 as serial_fd to avoid closing an invalid file descriptor
+        exit(EXIT_FAILURE);
+    }
 
     set_serial_parameters(serial_fd, baudRate, parity, dataBits, stopBits);
 
@@ -193,36 +199,96 @@ int main(int argc, char *argv[])
     signal(SIGTERM, handle_signal);
 
     printf("Starting...\n");
-    char buffer[BUFFER_SIZE];
+
+    struct sched_param sp = {.sched_priority = sched_get_priority_max(SCHED_RR)};
+    if (sched_setscheduler(0, SCHED_RR, &sp) != 0)
+    {
+        perror("Error setting process priority");
+        close(serial_fd);
+        return 1;
+    }
+
+    char buffer[22];
+    char data_to_write = 0x0F;
+    char data_to_write1 = 0x1E;
+    int bytes_read;
+    struct timespec start, now, start1;
+    char tx_time_str[30], rx_time_str[30];
+    char rx_data[30][3];
+
+    FILE *outputFile = open_output_file(outputFileName, fileExtension, fileCounter);
+
+    if (!outputFile)
+    {
+        perror("Error opening output file");
+        cleanup(serial_fd, NULL); // Passing -1 as serial_fd to avoid closing an invalid file descriptor
+    }
+
+    // heading as sl.no, tx_data, tx_time, rx_data, rx_time, tx_elapsed
+    fprintf(outputFile, "sl.no,tx_data,tx_time,rx_data,rx_time,tx_elapsed\n");
+    // vairable for counter, it must be unsigned long long int
+    unsigned long long int counter = 1;
+    // varible to store the time difference between start and start1
+    unsigned long long int tx_elapsed = 0;
+
+    // flush the serial port
+    tcflush(serial_fd, TCIOFLUSH);
+
 
     while (!stop_flag)
     {
-        ssize_t bytesRead = read(serial_fd, buffer, sizeof(buffer));
-
-        if (bytesRead > 0)
-        {
-            if (currentFileSize + bytesRead > filesize)
-            {
-                fclose(outputFile);
-                outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter);
-                currentFileSize = 0;
-            }
-
-            fwrite(buffer, 1, bytesRead, outputFile);
-            fflush(outputFile);
-
-            currentFileSize += bytesRead;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+        // calculate the time difference between start and start1
+        if (counter > 2) {
+            tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
+                        start.tv_nsec / 1000 - start1.tv_nsec / 1000;
+            fprintf(outputFile, "%llu\n", tx_elapsed);
         }
-        else if (bytesRead < 0)
+        start1 = start;
+        timespec_to_hhmmssmsus(&start, tx_time_str, sizeof(tx_time_str));
+        fprintf(outputFile, "%llu,%02X,%s,", counter, (unsigned char)data_to_write, tx_time_str);
+
+        ssize_t bytes_written = write(serial_fd, &data_to_write, 1);
+        usleep(100);
+        if (bytes_written < 0)
+        {
+            perror("Error writing to serial port");
+            close(serial_fd);
+            return 1;
+        }
+        ssize_t bytes_read = read(serial_fd, buffer, sizeof(buffer));
+        if (bytes_read < 0)
         {
             perror("Error reading from serial port");
-            cleanup(serial_fd, outputFile);
-            return EXIT_FAILURE;
+            close(serial_fd);
+            return 1;
         }
-        else
+        printf("Bytes read: %ld\n", bytes_read);
+        printf("Read data: ");
+        for (ssize_t i = 0; i < bytes_read; ++i)
         {
-            // No data read
+            printf("%02X ", (unsigned char)buffer[i]);
+            snprintf(rx_data[i], 3, "%02X", (unsigned char)buffer[i]);
         }
+
+            printf("\n");
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        timespec_to_hhmmssmsus(&now, rx_time_str, sizeof(rx_time_str));
+        char joined_rx_data[30];
+        joined_rx_data[0] = '\0';
+        for (ssize_t i = 0; i < bytes_read; ++i)
+        {
+            strcat(joined_rx_data, rx_data[i]);
+        }
+        fprintf(outputFile, "%s,%s,", joined_rx_data, rx_time_str);
+        long elapsedMicroseconds = (now.tv_sec - start.tv_sec) * 1000000 +
+                                   now.tv_nsec / 1000 - start.tv_nsec / 1000;
+        long timeLeftMicroseconds = 100000 - elapsedMicroseconds;
+        if (timeLeftMicroseconds > 0)
+        {
+            usleep(timeLeftMicroseconds - 20);
+        }
+        ++counter;
     }
 
     printf("Stopping...\n");

@@ -7,7 +7,7 @@
 #include <sys/time.h>
 #include <sched.h>
 
-#define SERIAL_PORT "/dev/ttyXR0"
+#define SERIAL_PORT "/dev/ttyXR7"
 
 // Function to set up the serial port
 int setupSerialPort(const char *portName)
