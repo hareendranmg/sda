@@ -225,7 +225,7 @@ int main(int argc, char *argv[])
     }
 
     // heading as sl.no, tx_data, tx_time, rx_data, rx_time, tx_elapsed
-    fprintf(outputFile, "sl.no,tx_data,tx_time,rx_data,rx_time,tx_elapsed\n");
+    fprintf(outputFile, "sl.no,command_1,response_1,command_2,response_2\n");
     // vairable for counter, it must be unsigned long long int
     unsigned long long int counter = 1;
     // varible to store the time difference between start and start1
@@ -239,17 +239,17 @@ int main(int argc, char *argv[])
     {
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
         // calculate the time difference between start and start1
-        if (counter > 2) {
-            tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
-                        start.tv_nsec / 1000 - start1.tv_nsec / 1000;
-            fprintf(outputFile, "%llu\n", tx_elapsed);
-        }
+        // if (counter > 2) {
+        //     tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
+        //                 start.tv_nsec / 1000 - start1.tv_nsec / 1000;
+        //     fprintf(outputFile, "%llu\n", tx_elapsed);
+        // }
         start1 = start;
-        timespec_to_hhmmssmsus(&start, tx_time_str, sizeof(tx_time_str));
-        fprintf(outputFile, "%llu,%02X,%s,", counter, (unsigned char)data_to_write, tx_time_str);
+        // timespec_to_hhmmssmsus(&start, tx_time_str, sizeof(tx_time_str));
+        fprintf(outputFile, "%llu,%02X,", counter, (unsigned char)data_to_write);
 
         ssize_t bytes_written = write(serial_fd, &data_to_write, 1);
-        usleep(100);
+        usleep(10);
         if (bytes_written < 0)
         {
             perror("Error writing to serial port");
@@ -263,30 +263,58 @@ int main(int argc, char *argv[])
             close(serial_fd);
             return 1;
         }
-        printf("Bytes read: %ld\n", bytes_read);
-        printf("Read data: ");
+        printf("Read data1: ");
         for (ssize_t i = 0; i < bytes_read; ++i)
         {
             printf("%02X ", (unsigned char)buffer[i]);
-            snprintf(rx_data[i], 3, "%02X", (unsigned char)buffer[i]);
+            // snprintf(rx_data[i], 3, "%02X", (unsigned char)buffer[i]);
+            fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
         }
+        // fprintf(outputFile, "%s,", *rx_data);
+        printf("\n");
 
-            printf("\n");
-        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-        timespec_to_hhmmssmsus(&now, rx_time_str, sizeof(rx_time_str));
-        char joined_rx_data[30];
-        joined_rx_data[0] = '\0';
+        fprintf(outputFile, ",%02X,", (unsigned char)data_to_write1);
+
+        bytes_written = write(serial_fd, &data_to_write1, 1);
+        usleep(10);
+        if (bytes_written < 0)
+        {
+            perror("Error writing to serial port");
+            close(serial_fd);
+            return 1;
+        }
+        bytes_read = read(serial_fd, buffer, sizeof(buffer));
+        if (bytes_read < 0)
+        {
+            perror("Error reading from serial port");
+            close(serial_fd);
+            return 1;
+        }
+        printf("Read data2: ");
         for (ssize_t i = 0; i < bytes_read; ++i)
         {
-            strcat(joined_rx_data, rx_data[i]);
+            printf("%02X ", (unsigned char)buffer[i]);
+            fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
         }
-        fprintf(outputFile, "%s,%s,", joined_rx_data, rx_time_str);
+        // sprintf(rx_data[bytes_read], "\0");
+        fprintf(outputFile, "\n", &buffer);
+        printf("\n");
+
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        timespec_to_hhmmssmsus(&now, rx_time_str, sizeof(rx_time_str));
+
+        // joined_rx_data[0] = '\0';
+        // for (ssize_t i = 0; i < bytes_read; ++i)
+        // {
+        //     strcat(joined_rx_data, rx_data[i]);
+        // }
+        // fprintf(outputFile, "%s,%s,", joined_rx_data, rx_time_str);
         long elapsedMicroseconds = (now.tv_sec - start.tv_sec) * 1000000 +
                                    now.tv_nsec / 1000 - start.tv_nsec / 1000;
-        long timeLeftMicroseconds = 100000 - elapsedMicroseconds;
+        long timeLeftMicroseconds = 4000 - elapsedMicroseconds;
         if (timeLeftMicroseconds > 0)
         {
-            usleep(timeLeftMicroseconds - 20);
+            usleep(timeLeftMicroseconds);
         }
         ++counter;
     }
