@@ -189,7 +189,7 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
     else if (selectResult == 0)
     {
         // Handle timeout
-        printf("Timeout occurred for command %02X\n", expectedCommand);
+        // printf("Timeout occurred for command %02X\n", expectedCommand);
         fprintf(outputFile, "timeout,");
         return 1; // Indicate timeout
     }
@@ -218,14 +218,14 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
     }
 
     // Print the received response
-    printf("Received %02X: ", expectedCommand);
+    // printf("Received %02X: ", expectedCommand);
     for (size_t i = 0; i < responseBytes; ++i)
     {
-        printf("%02X ", (unsigned char)buffer[i]);
+        // printf("%02X ", (unsigned char)buffer[i]);
         fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
     }
     fprintf(outputFile, ",");
-    printf("\n");
+    // printf("\n");
 
     // Write the received bytes to the output file
 
@@ -357,14 +357,14 @@ int main(int argc, char *argv[])
         long timeoutMicros = 0;
 
         time_t currentTime = time(NULL);
-        printf("Current time: %ld\n", currentTime);
-        printf("Last flush time: %ld\n", lastFlushTime);
-        printf("Current time - last flush time: %ld\n", currentTime - lastFlushTime);
+        // printf("Current time: %ld\n", currentTime);
+        // printf("Last flush time: %ld\n", lastFlushTime);
+        // printf("Current time - last flush time: %ld\n", currentTime - lastFlushTime);
 
 
         if (currentTime - lastFlushTime >= 120)
         {
-            printf("Flushing...\n");
+            // printf("Flushing...\n");
             fflush(outputFile);
             lastFlushTime = currentTime;
         }
