@@ -1,3 +1,4 @@
+// ./command_response /dev/ttyXR7 command_response 2000000 O 8 1 10240000 csv 100 0f 22 100 1e 22 100 12 10 10
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,7 +43,7 @@ void cleanup(int serialPortFD, FILE *outputFile)
     printf("Cleaning up...\n");
     if (outputFile)
         fflush(outputFile);
-        fclose(outputFile);
+    fclose(outputFile);
     if (serialPortFD != -1)
         close(serialPortFD);
     printf("Cleaned up\n");
@@ -221,7 +222,7 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
     // printf("Received %02X: ", expectedCommand);
     for (size_t i = 0; i < responseBytes; ++i)
     {
-        // printf("%02X ", (unsigned char)buffer[i]);
+        printf("%02X ", (unsigned char)buffer[i]);
         fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
     }
     fprintf(outputFile, ",");
@@ -289,7 +290,6 @@ int main(int argc, char *argv[])
         commandPairs[i].timeoutMicros = atoi(argv[i * 3 + 12]);
     }
 
-
     // print command pairs
     for (size_t i = 0; i < numCommands; ++i)
     {
@@ -339,10 +339,16 @@ int main(int argc, char *argv[])
     writeHeaders(outputFile, numCommands, commandPairs);
 
     unsigned long long int counter = 1;
+
+    time_t currentTime = time(NULL);
     time_t lastFlushTime = time(NULL);
+
+    struct timespec start, now, start1;
 
     while (!stop_flag)
     {
+        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+
         fprintf(outputFile, "%llu,", counter);
         for (size_t i = 0; i < numCommands; ++i)
         {
@@ -356,12 +362,7 @@ int main(int argc, char *argv[])
         long elapsedMicroseconds = 0;
         long timeoutMicros = 0;
 
-        time_t currentTime = time(NULL);
-        // printf("Current time: %ld\n", currentTime);
-        // printf("Last flush time: %ld\n", lastFlushTime);
-        // printf("Current time - last flush time: %ld\n", currentTime - lastFlushTime);
-
-
+        currentTime = time(NULL);
         if (currentTime - lastFlushTime >= 120)
         {
             // printf("Flushing...\n");
@@ -369,14 +370,11 @@ int main(int argc, char *argv[])
             lastFlushTime = currentTime;
         }
 
-        // elapsedMicroseconds is calculated by subtracting the sum of 200 + timeoutMicros of each command from intervalMillis * 1000
-        // timeoutMicros is calculated by adding the timeoutMicros of each command
-        // Check if 10 seconds have passed since the last flush
-        for (size_t i = 0; i < numCommands; ++i)
-        {
-            timeoutMicros += commandPairs[i].timeoutMicros;
-        }
-        elapsedMicroseconds = 200 + timeoutMicros;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        elapsedMicroseconds = (now.tv_sec - start.tv_sec) * 1000000 +
+                              now.tv_nsec / 1000 - start.tv_nsec / 1000;
+        // fprintf(outputFile, "%ld,%ld\n", ((intervalMillis * 1000) - elapsedMicroseconds), (intervalMillis * 1000) - elapsedMicroseconds1);
+
         usleep((intervalMillis * 1000) - elapsedMicroseconds);
         counter++;
     }
