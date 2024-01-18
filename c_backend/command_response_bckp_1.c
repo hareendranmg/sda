@@ -36,34 +36,34 @@ void handle_signal(int signum)
     printf("Exiting signal handler\n");
 }
 
-void cleanup(int serialPortFD, FILE *outputFile)
+void cleanup(int serial_fd, FILE *outputFile)
 {
     printf("Cleaning up...\n");
     if (outputFile)
         fclose(outputFile);
-    if (serialPortFD != -1)
-        close(serialPortFD);
+    if (serial_fd != -1)
+        close(serial_fd);
     printf("Cleaned up\n");
 }
 
 int open_serial_port(const char *serialPortName)
 {
-    int serialPortFD = open(serialPortName, O_RDWR | O_NOCTTY | O_NONBLOCK);
-    if (serialPortFD == -1)
+    int serial_fd = open(serialPortName, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    if (serial_fd == -1)
     {
         perror("Error opening serial port");
     }
-    return serialPortFD;
+    return serial_fd;
 }
 
-void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int dataBits, int stopBits)
+void set_serial_parameters(int serial_fd, speed_t baudRate, char parity, int dataBits, int stopBits)
 {
     struct termios tty;
     memset(&tty, 0, sizeof(tty));
-    if (tcgetattr(serialPortFD, &tty) != 0)
+    if (tcgetattr(serial_fd, &tty) != 0)
     {
         perror("Error getting serial port attributes");
-        cleanup(serialPortFD, NULL);
+        cleanup(serial_fd, NULL);
         exit(EXIT_FAILURE);
     }
 
@@ -109,7 +109,7 @@ void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int 
     else
     {
         fprintf(stderr, "Invalid number of data bits\n");
-        cleanup(serialPortFD, NULL);
+        cleanup(serial_fd, NULL);
         exit(EXIT_FAILURE);
     }
 
@@ -125,14 +125,14 @@ void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int 
     else
     {
         fprintf(stderr, "Invalid number of stop bits\n");
-        cleanup(serialPortFD, NULL);
+        cleanup(serial_fd, NULL);
         exit(EXIT_FAILURE);
     }
 
-    if (tcsetattr(serialPortFD, TCSAFLUSH, &tty) != 0)
+    if (tcsetattr(serial_fd, TCSAFLUSH, &tty) != 0)
     {
         perror("Error setting serial port attributes");
-        cleanup(serialPortFD, NULL);
+        cleanup(serial_fd, NULL);
         exit(EXIT_FAILURE);
     }
 }
@@ -145,7 +145,7 @@ FILE *open_output_file(const char *outputFileName, const char *fileExtension, in
     if (!outputFile)
     {
         perror("Error opening output file");
-        cleanup(-1, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        cleanup(-1, NULL); // Passing -1 as serial_fd to avoid closing an invalid file descriptor
         exit(EXIT_FAILURE);
     }
     return outputFile;
@@ -294,16 +294,16 @@ int main(int argc, char *argv[])
              serialPortName, (int)baudRate, parity, dataBits, stopBits);
     system(python_command);
 
-    int serialPortFD = open_serial_port(serialPortName);
+    int serial_fd = open_serial_port(serialPortName);
 
-    if (serialPortFD == -1)
+    if (serial_fd == -1)
     {
         perror("Error opening serial port");
-        cleanup(-1, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        cleanup(-1, NULL); // Passing -1 as serial_fd to avoid closing an invalid file descriptor
         exit(EXIT_FAILURE);
     }
 
-    set_serial_parameters(serialPortFD, baudRate, parity, dataBits, stopBits);
+    set_serial_parameters(serial_fd, baudRate, parity, dataBits, stopBits);
 
     // Register signal handler for graceful termination
     signal(SIGINT, handle_signal);
@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
     if (sched_setscheduler(0, SCHED_RR, &sp) != 0)
     {
         perror("Error setting process priority");
-        close(serialPortFD);
+        close(serial_fd);
         return 1;
     }
 
@@ -324,36 +324,115 @@ int main(int argc, char *argv[])
     if (!outputFile)
     {
         perror("Error opening output file");
-        cleanup(serialPortFD, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        cleanup(serial_fd, NULL); // Passing -1 as serial_fd to avoid closing an invalid file descriptor
     }
 
     // heading as sl.no, tx_data, tx_time, rx_data, rx_time, tx_elapsed
+    fprintf(outputFile, "sl.no,command_1,response_1,command_2,response_2\n");
     unsigned long long int counter = 1;
     // flush the serial port
-    // tcflush(serialPortFD, TCIOFLUSH);
+    // tcflush(serial_fd, TCIOFLUSH);
 
     while (!stop_flag)
     {
-        for (size_t i = 0; i < numCommands; ++i)
+        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+        ssize_t bytes_written = write(serial_fd, &data_to_write, 1);
+        fprintf(outputFile, "%llu,%02X,", counter, (unsigned char)data_to_write);
+
+        //**************************** Command 1 ********************************//
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(serial_fd, &readSet);
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 40;
+        int selectResult1 = select(serial_fd + 1, &readSet, NULL, NULL, &timeout);
+
+        if (selectResult1 == -1)
         {
-            sendAndReceive(serialPortFD, &commandPairs[i]);
+            perror("Error from select");
         }
-        long elapsedMicroseconds = 0;
-        long timeoutMicros = 0;
-        // elapsedMicroseconds is calculated by subtracting the sum of 200 + timeoutMicros of each command from intervalMillis * 1000
-        // timeoutMicros is calculated by adding the timeoutMicros of each command
-        for (size_t i = 0; i < numCommands; ++i)
+
+        if (selectResult1 > 0)
         {
-            timeoutMicros += commandPairs[i].timeoutMicros;
+            char buffer[22];
+            ssize_t bytes_read = read(serial_fd, buffer, sizeof(buffer));
+            tcflush(serial_fd, TCIOFLUSH);
+
+            if (bytes_read > 0)
+            {
+                fprintf(outputFile, "%d,", bytes_read);
+                printf("Read data1: ");
+                for (ssize_t i = 0; i < bytes_read; ++i)
+                {
+                    printf("%02X ", (unsigned char)buffer[i]);
+                    fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
+                }
+                printf("\n");
+            }
         }
-        elapsedMicroseconds = 200 + timeoutMicros;
-        usleep((intervalMillis * 1000) - elapsedMicroseconds);
+        else
+        {
+            fprintf(outputFile, "0,");
+        }
+        //***********************************************************************
+        usleep(100);
+        //*******************************Command 2*******************************
+        bytes_written = write(serial_fd, &data_to_write1, 1);
+        fprintf(outputFile, ",%02X,", (unsigned char)data_to_write1);
+
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 40;
+        selectResult1 = select(serial_fd + 1, &readSet, NULL, NULL, &timeout);
+
+        if (selectResult1 == -1)
+        {
+            perror("Error from select");
+        }
+
+        if (selectResult1 > 0)
+        {
+            char buffer[22];
+            ssize_t bytes_read = read(serial_fd, buffer, sizeof(buffer));
+            // tcflush(serial_fd, TCIOFLUSH);
+
+            if (bytes_read > 0)
+            {
+                fprintf(outputFile, "%d,", bytes_read);
+                printf("Read data2: ");
+                for (ssize_t i = 0; i < bytes_read; ++i)
+                {
+                    printf("%02X ", (unsigned char)buffer[i]);
+                    fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
+                }
+                printf("\n");
+            }
+        }
+        else
+        {
+            fprintf(outputFile, "0,");
+        }
+        //***********************************************************************
+        fprintf(outputFile, "\n");
+
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        timespec_to_hhmmssmsus(&now, rx_time_str, sizeof(rx_time_str));
+
+        long elapsedMicroseconds = (now.tv_sec - start.tv_sec) * 1000000 +
+                                   now.tv_nsec / 1000 - start.tv_nsec / 1000;
+        long timeLeftMicroseconds = 4000 - elapsedMicroseconds;
+        if (timeLeftMicroseconds > 0)
+        {
+            printf("Sleeping for %ld microseconds\n", timeLeftMicroseconds);
+            usleep(timeLeftMicroseconds);
+        }
+        ++counter;
     }
 
     printf("Stopping...\n");
 
     // Cleanup and close resources before exiting
-    cleanup(serialPortFD, outputFile);
+    cleanup(serial_fd, outputFile);
 
     // Reset signal handlers to default behavior
     signal(SIGINT, SIG_DFL);

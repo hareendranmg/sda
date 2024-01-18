@@ -124,8 +124,6 @@ void sendAndReceive(int serialPortFD, const struct CommandPair *commandPair)
 
 int main(int argc, char *argv[])
 {
-    // print argc
-    printf("argc: %d\n", argc);
     if (argc < 4 || (argc - 2) % 3 != 0)
     {
         fprintf(stderr, "Usage: %s <intervalMillis> <command1> <responseBytes1> <timeoutMicros1> [<command2> <responseBytes2> <timeoutMicros2> ...]\n", argv[0]);
@@ -167,18 +165,8 @@ int main(int argc, char *argv[])
         {
             sendAndReceive(serialPortFD, &commandPairs[i]);
         }
-        long elapsedMicroseconds = 0;
-        long timeoutMicros = 0;
-        // elapsedMicroseconds is calculated by subtracting the sum of 200 + timeoutMicros of each command from intervalMillis * 1000
-        // timeoutMicros is calculated by adding the timeoutMicros of each command
-        for (size_t i = 0; i < numCommands; ++i)
-        {
-            timeoutMicros += commandPairs[i].timeoutMicros;
-        }
-        elapsedMicroseconds = 200 + timeoutMicros;
-        usleep((intervalMillis * 1000) - elapsedMicroseconds);
-
-        }
+        usleep(intervalMillis * 1000);
+    }
 
     // Close the serial port
     close(serialPortFD);
