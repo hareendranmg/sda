@@ -9,6 +9,20 @@
 #include <time.h>
 #include <sched.h>
 #include <inttypes.h>
+#include <sys/select.h>
+
+struct CommandPair
+{
+    unsigned char command;
+    size_t responseBytes;
+};
+
+enum State
+{
+    IDLE,
+    WAITING_FOR_COMMAND,
+    WAITING_FOR_RESPONSE
+};
 
 #define MAX_FILE_PATH 256
 
@@ -208,7 +222,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    char buffer[22];
     char data_to_write = 0x0F;
     char data_to_write1 = 0x1E;
     int bytes_read;
@@ -232,88 +245,99 @@ int main(int argc, char *argv[])
     unsigned long long int tx_elapsed = 0;
 
     // flush the serial port
-    tcflush(serial_fd, TCIOFLUSH);
-
+    // tcflush(serial_fd, TCIOFLUSH);
 
     while (!stop_flag)
     {
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-        // calculate the time difference between start and start1
-        // if (counter > 2) {
-        //     tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
-        //                 start.tv_nsec / 1000 - start1.tv_nsec / 1000;
-        //     fprintf(outputFile, "%llu\n", tx_elapsed);
-        // }
-        start1 = start;
-        // timespec_to_hhmmssmsus(&start, tx_time_str, sizeof(tx_time_str));
+        ssize_t bytes_written = write(serial_fd, &data_to_write, 1);
         fprintf(outputFile, "%llu,%02X,", counter, (unsigned char)data_to_write);
 
-        ssize_t bytes_written = write(serial_fd, &data_to_write, 1);
-        usleep(10);
-        if (bytes_written < 0)
-        {
-            perror("Error writing to serial port");
-            close(serial_fd);
-            return 1;
-        }
-        ssize_t bytes_read = read(serial_fd, buffer, sizeof(buffer));
-        if (bytes_read < 0)
-        {
-            perror("Error reading from serial port");
-            close(serial_fd);
-            return 1;
-        }
-        printf("Read data1: ");
-        for (ssize_t i = 0; i < bytes_read; ++i)
-        {
-            printf("%02X ", (unsigned char)buffer[i]);
-            // snprintf(rx_data[i], 3, "%02X", (unsigned char)buffer[i]);
-            fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
-        }
-        // fprintf(outputFile, "%s,", *rx_data);
-        printf("\n");
+        //**************************** Command 1 ********************************//
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(serial_fd, &readSet);
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 40;
+        int selectResult1 = select(serial_fd + 1, &readSet, NULL, NULL, &timeout);
 
+        if (selectResult1 == -1)
+        {
+            perror("Error from select");
+        }
+
+        if (selectResult1 > 0)
+        {
+            char buffer[22];
+            ssize_t bytes_read = read(serial_fd, buffer, sizeof(buffer));
+            tcflush(serial_fd, TCIOFLUSH);
+
+            if (bytes_read > 0)
+            {
+                fprintf(outputFile, "%d,", bytes_read);
+                printf("Read data1: ");
+                for (ssize_t i = 0; i < bytes_read; ++i)
+                {
+                    printf("%02X ", (unsigned char)buffer[i]);
+                    fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
+                }
+                printf("\n");
+            }
+        }
+        else
+        {
+            fprintf(outputFile, "0,");
+        }
+        //***********************************************************************
+        usleep(100);
+        //*******************************Command 2*******************************
+        bytes_written = write(serial_fd, &data_to_write1, 1);
         fprintf(outputFile, ",%02X,", (unsigned char)data_to_write1);
 
-        bytes_written = write(serial_fd, &data_to_write1, 1);
-        usleep(10);
-        if (bytes_written < 0)
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 40;
+        selectResult1 = select(serial_fd + 1, &readSet, NULL, NULL, &timeout);
+
+        if (selectResult1 == -1)
         {
-            perror("Error writing to serial port");
-            close(serial_fd);
-            return 1;
+            perror("Error from select");
         }
-        bytes_read = read(serial_fd, buffer, sizeof(buffer));
-        if (bytes_read < 0)
+
+        if (selectResult1 > 0)
         {
-            perror("Error reading from serial port");
-            close(serial_fd);
-            return 1;
+            char buffer[22];
+            ssize_t bytes_read = read(serial_fd, buffer, sizeof(buffer));
+            // tcflush(serial_fd, TCIOFLUSH);
+
+            if (bytes_read > 0)
+            {
+                fprintf(outputFile, "%d,", bytes_read);
+                printf("Read data2: ");
+                for (ssize_t i = 0; i < bytes_read; ++i)
+                {
+                    printf("%02X ", (unsigned char)buffer[i]);
+                    fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
+                }
+                printf("\n");
+            }
         }
-        printf("Read data2: ");
-        for (ssize_t i = 0; i < bytes_read; ++i)
+        else
         {
-            printf("%02X ", (unsigned char)buffer[i]);
-            fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
+            fprintf(outputFile, "0,");
         }
-        // sprintf(rx_data[bytes_read], "\0");
-        fprintf(outputFile, "\n", &buffer);
-        printf("\n");
+        //***********************************************************************
+        fprintf(outputFile, "\n");
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &now);
         timespec_to_hhmmssmsus(&now, rx_time_str, sizeof(rx_time_str));
 
-        // joined_rx_data[0] = '\0';
-        // for (ssize_t i = 0; i < bytes_read; ++i)
-        // {
-        //     strcat(joined_rx_data, rx_data[i]);
-        // }
-        // fprintf(outputFile, "%s,%s,", joined_rx_data, rx_time_str);
         long elapsedMicroseconds = (now.tv_sec - start.tv_sec) * 1000000 +
                                    now.tv_nsec / 1000 - start.tv_nsec / 1000;
         long timeLeftMicroseconds = 4000 - elapsedMicroseconds;
         if (timeLeftMicroseconds > 0)
         {
+            printf("Sleeping for %ld microseconds\n", timeLeftMicroseconds);
             usleep(timeLeftMicroseconds);
         }
         ++counter;

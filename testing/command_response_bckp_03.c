@@ -68,7 +68,7 @@ int main()
     {
         ssize_t bytes_written = write(serialPort, &data_to_write, 1);
         // delay of 10 microseconds
-        usleep(10);
+        usleep(100);
         // gpiod_ctxless_set_value(chip, offset, 0, false, "gpio-toggle", NULL, NULL);
 
         if (bytes_written < 0)
