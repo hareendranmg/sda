@@ -10,6 +10,7 @@
 #include <sched.h>
 #include <inttypes.h>
 #include <sys/select.h>
+#include <stddef.h>
 
 struct CommandPair
 {
@@ -164,7 +165,7 @@ void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size)
 
 int readResponse(int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros)
 {
-    char buffer[256]; // Adjust the buffer size as needed
+    unsigned char buffer[responseBytes];
     size_t bytesRead = 0;
     unsigned char command;
 
@@ -188,7 +189,7 @@ int readResponse(int serialPortFD, unsigned char expectedCommand, size_t respons
     {
         // Handle timeout
         printf("Timeout occurred for command %02X\n", expectedCommand);
-        return 1;
+        return 1; // Indicate timeout
     }
 
     // Read until the expected command byte is received
@@ -222,25 +223,27 @@ int readResponse(int serialPortFD, unsigned char expectedCommand, size_t respons
     }
     printf("\n");
 
+    // Return responseBytes and buffer
     return 0;
 }
 
-void sendAndReceive(int serialPortFD, const struct CommandPair *commandPair)
+void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs)
 {
-    write(serialPortFD, &(commandPair->command), sizeof(commandPair->command));
-    usleep(200);
-    readResponse(serialPortFD, commandPair->command, commandPair->responseBytes, commandPair->timeoutMicros);
+    fprintf(outputFile, "slno");
+    for (size_t i = 0; i < numCommands; ++i)
+    {
+        fprintf(outputFile, ",command%d,response%d", i + 1, i + 1);
+    }
+    fprintf(outputFile, "\n");
 }
-
 
 int main(int argc, char *argv[])
 {
-    // printf("argc: %d\n", argc);
-    // print arguments with their index + 1
-    // for (int i = 0; i < argc; i++)
-    // {
-    //     printf("argv[%d]: %s\n", i+1, argv[i]);
-    // }
+    printf("argc: %d\n", argc);
+    for (int i = 0; i < argc; i++)
+    {
+        printf("argv[%d]: %s\n", i, argv[i]);
+    }
 
     if (argc < 14 || (argc - 10) % 3 != 0)
     {
@@ -327,16 +330,23 @@ int main(int argc, char *argv[])
         cleanup(serialPortFD, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
     }
 
-    // heading as sl.no, tx_data, tx_time, rx_data, rx_time, tx_elapsed
+    writeHeaders(outputFile, numCommands, commandPairs);
+
     unsigned long long int counter = 1;
-    // flush the serial port
-    // tcflush(serialPortFD, TCIOFLUSH);
 
     while (!stop_flag)
     {
         for (size_t i = 0; i < numCommands; ++i)
         {
-            sendAndReceive(serialPortFD, &commandPairs[i]);
+            // fwrite counter and a comma
+            fwrite(&counter, sizeof(counter), 1, outputFile);
+            fwrite(",", sizeof(char), 1, outputFile);
+            write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
+            fwrite(&(commandPairs[i].command), sizeof(commandPairs[i].command), 1, outputFile);
+            fwrite(",", sizeof(char), 1, outputFile);
+            usleep(200);
+            readResponse(serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
+
         }
         long elapsedMicroseconds = 0;
         long timeoutMicros = 0;
