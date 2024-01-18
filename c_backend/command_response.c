@@ -41,6 +41,7 @@ void cleanup(int serialPortFD, FILE *outputFile)
 {
     printf("Cleaning up...\n");
     if (outputFile)
+        fflush(outputFile);
         fclose(outputFile);
     if (serialPortFD != -1)
         close(serialPortFD);
@@ -163,7 +164,7 @@ void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size)
     snprintf(output, size, "%02d:%02d:%02d.%03ld.%03ld", tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, ms, us);
 }
 
-int readResponse(int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros)
+int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros)
 {
     unsigned char buffer[responseBytes];
     size_t bytesRead = 0;
@@ -189,6 +190,7 @@ int readResponse(int serialPortFD, unsigned char expectedCommand, size_t respons
     {
         // Handle timeout
         printf("Timeout occurred for command %02X\n", expectedCommand);
+        fprintf(outputFile, "timeout,");
         return 1; // Indicate timeout
     }
 
@@ -220,8 +222,12 @@ int readResponse(int serialPortFD, unsigned char expectedCommand, size_t respons
     for (size_t i = 0; i < responseBytes; ++i)
     {
         printf("%02X ", (unsigned char)buffer[i]);
+        fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
     }
+    fprintf(outputFile, ",");
     printf("\n");
+
+    // Write the received bytes to the output file
 
     // Return responseBytes and buffer
     return 0;
@@ -333,31 +339,46 @@ int main(int argc, char *argv[])
     writeHeaders(outputFile, numCommands, commandPairs);
 
     unsigned long long int counter = 1;
+    time_t lastFlushTime = time(NULL);
 
     while (!stop_flag)
     {
+        fprintf(outputFile, "%llu,", counter);
         for (size_t i = 0; i < numCommands; ++i)
         {
-            // fwrite counter and a comma
-            fwrite(&counter, sizeof(counter), 1, outputFile);
-            fwrite(",", sizeof(char), 1, outputFile);
+            fprintf(outputFile, "%02X,", commandPairs[i].command);
             write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
-            fwrite(&(commandPairs[i].command), sizeof(commandPairs[i].command), 1, outputFile);
-            fwrite(",", sizeof(char), 1, outputFile);
             usleep(200);
-            readResponse(serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
-
+            readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
         }
+        // fwrite newline
+        fwrite("\n", sizeof(char), 1, outputFile);
         long elapsedMicroseconds = 0;
         long timeoutMicros = 0;
+
+        time_t currentTime = time(NULL);
+        printf("Current time: %ld\n", currentTime);
+        printf("Last flush time: %ld\n", lastFlushTime);
+        printf("Current time - last flush time: %ld\n", currentTime - lastFlushTime);
+
+
+        if (currentTime - lastFlushTime >= 120)
+        {
+            printf("Flushing...\n");
+            fflush(outputFile);
+            lastFlushTime = currentTime;
+        }
+
         // elapsedMicroseconds is calculated by subtracting the sum of 200 + timeoutMicros of each command from intervalMillis * 1000
         // timeoutMicros is calculated by adding the timeoutMicros of each command
+        // Check if 10 seconds have passed since the last flush
         for (size_t i = 0; i < numCommands; ++i)
         {
             timeoutMicros += commandPairs[i].timeoutMicros;
         }
         elapsedMicroseconds = 200 + timeoutMicros;
         usleep((intervalMillis * 1000) - elapsedMicroseconds);
+        counter++;
     }
 
     printf("Stopping...\n");
