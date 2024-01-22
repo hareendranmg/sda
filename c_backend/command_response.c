@@ -316,38 +316,38 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
         // printf("Timeout occurred for command %02X\n", expectedCommand);
         fprintf(outputFile, "timeout,");
         return 1; // Indicate timeout
-    }
+    } else {
+        do
+        {
+            ssize_t readResult = read(serialPortFD, &command, 1);
 
-    // Read until the expected command byte is received
-    do
-    {
-        ssize_t readResult = read(serialPortFD, &command, 1);
+            if (readResult == -1)
+            {
+                perror("Error reading from serial port");
+                continue;
+            }
+
+            buffer[bytesRead++] = command;
+        } while (command != expectedCommand && bytesRead < responseBytes);
+
+        // Read the remaining response bytes
+        ssize_t readResult = read(serialPortFD, buffer + bytesRead, responseBytes - bytesRead);
 
         if (readResult == -1)
         {
             perror("Error reading from serial port");
-            exit(EXIT_FAILURE);
         }
 
-        buffer[bytesRead++] = command;
-    } while (command != expectedCommand && bytesRead < responseBytes);
-
-    // Read the remaining response bytes
-    ssize_t readResult = read(serialPortFD, buffer + bytesRead, responseBytes - bytesRead);
-
-    if (readResult == -1)
-    {
-        perror("Error reading from serial port");
-        exit(EXIT_FAILURE);
+        // Print the received response
+        // printf("Received %02X: ", expectedCommand);
+        for (size_t i = 0; i < responseBytes; ++i)
+        {
+            // printf("%02X ", (unsigned char)buffer[i]);
+            fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
+        }
     }
+    // Read until the expected command byte is received
 
-    // Print the received response
-    // printf("Received %02X: ", expectedCommand);
-    for (size_t i = 0; i < responseBytes; ++i)
-    {
-        // printf("%02X ", (unsigned char)buffer[i]);
-        fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
-    }
     fprintf(outputFile, ", ");
     // printf("\n");
 
@@ -380,7 +380,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
     while (!stop_flag)
     {
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-        if (counter > 1)
+        if (counter > 2)
         {
             tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
                          start.tv_nsec / 1000 - start1.tv_nsec / 1000;
@@ -396,7 +396,9 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
             readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
         }
         // fwrite newline
-        // fwrite("\n", sizeof(char), 1, outputFile);
+        if (counter == 1) {
+            fwrite("\n", sizeof(char), 1, outputFile);
+        }
         long elapsedMicroseconds = 0;
         long timeoutMicros = 0;
 
@@ -413,7 +415,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
                               now.tv_nsec / 1000 - start.tv_nsec / 1000;
         // fprintf(outputFile, "%ld,%ld\n", ((intervalMillis * 1000) - elapsedMicroseconds), (intervalMillis * 1000) - elapsedMicroseconds1);
 
-        usleep((intervalMillis * 1000) - elapsedMicroseconds - 20);
+        usleep((intervalMillis * 1000) - elapsedMicroseconds - 30);
         counter++;
     }
 }
