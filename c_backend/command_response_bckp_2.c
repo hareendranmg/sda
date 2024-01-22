@@ -13,14 +13,6 @@
 #include <sys/select.h>
 #include <stddef.h>
 
-#define MAX_FILE_PATH 256
-
-// Global variables
-volatile sig_atomic_t stop_flag = 0;
-size_t currentFileSize = 0;
-int fileCounter = 1;
-
-// data structure to store command, responseBytes and timeoutMicros
 struct CommandPair
 {
     unsigned char command;
@@ -28,124 +20,11 @@ struct CommandPair
     useconds_t timeoutMicros;
 };
 
-// Function prototypes
-void handle_signal(int signum);
-void cleanup(int serialPortFD, FILE *outputFile);
-int open_serial_port(const char *serialPortName);
-void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int dataBits, int stopBits);
-FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter);
-void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size);
-int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros);
-void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs);
-void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis);
+#define MAX_FILE_PATH 256
 
-int main(int argc, char *argv[])
-{
-    printf("argc: %d\n", argc);
-    for (int i = 0; i < argc; i++)
-    {
-        printf("argv[%d]: %s\n", i, argv[i]);
-    }
-
-    if (argc < 14 || (argc - 10) % 3 != 0)
-    {
-        fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits> <filesize> <file_extension> <intervalMillis> <command1> <responseBytes1> <timeoutMicros1> [<command2> <responseBytes2> <timeoutMicros2> ...]\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    int intervalMillis = atoi(argv[9]);
-    if (intervalMillis <= 0)
-    {
-        fprintf(stderr, "Interval must be greater than 0\n");
-        exit(EXIT_FAILURE);
-    }
-
-    const char *serialPortName = argv[1];
-    const char *outputFileName = argv[2];
-    speed_t baudRate = atoi(argv[3]);
-    char parity = argv[4][0];
-    int dataBits = atoi(argv[5]);
-    int stopBits = atoi(argv[6]);
-    size_t filesize = atoi(argv[7]);
-    const char *fileExtension = argv[8];
-
-    size_t numCommands = (argc - 9) / 3;
-
-    struct CommandPair *commandPairs = malloc(numCommands * sizeof(struct CommandPair));
-
-    if (commandPairs == NULL)
-    {
-        perror("Error allocating memory");
-        exit(EXIT_FAILURE);
-    }
-    for (size_t i = 0; i < numCommands; ++i)
-    {
-        commandPairs[i].command = strtol(argv[i * 3 + 10], NULL, 16);
-        commandPairs[i].responseBytes = atoi(argv[i * 3 + 11]);
-        commandPairs[i].timeoutMicros = atoi(argv[i * 3 + 12]);
-    }
-
-    // print command pairs
-    for (size_t i = 0; i < numCommands; ++i)
-    {
-        printf("Command %zu: %02X %zu %u\n", i, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
-    }
-
-    // Execute the Python script before opening the serial port
-    char python_command[MAX_FILE_PATH];
-    snprintf(python_command, sizeof(python_command),
-             "python3 /home/root/sda/python_backend/serial_workaround.py %s %d %c %d %d",
-             serialPortName, (int)baudRate, parity, dataBits, stopBits);
-    system(python_command);
-
-    int serialPortFD = open_serial_port(serialPortName);
-
-    if (serialPortFD == -1)
-    {
-        perror("Error opening serial port");
-        cleanup(-1, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
-        exit(EXIT_FAILURE);
-    }
-
-    set_serial_parameters(serialPortFD, baudRate, parity, dataBits, stopBits);
-
-    // Register signal handler for graceful termination
-    signal(SIGINT, handle_signal);
-    signal(SIGTERM, handle_signal);
-
-    printf("Starting...\n");
-
-    struct sched_param sp = {.sched_priority = sched_get_priority_max(SCHED_RR)};
-    if (sched_setscheduler(0, SCHED_RR, &sp) != 0)
-    {
-        perror("Error setting process priority");
-        close(serialPortFD);
-        return 1;
-    }
-
-    FILE *outputFile = open_output_file(outputFileName, fileExtension, fileCounter);
-
-    if (!outputFile)
-    {
-        perror("Error opening output file");
-        cleanup(serialPortFD, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
-    }
-
-    writeHeaders(outputFile, numCommands, commandPairs);
-
-    executeCommands(serialPortFD, outputFile, numCommands, commandPairs, intervalMillis);
-
-    printf("Stopping...\n");
-
-    // Cleanup and close resources before exiting
-    cleanup(serialPortFD, outputFile);
-
-    // Reset signal handlers to default behavior
-    signal(SIGINT, SIG_DFL);
-    signal(SIGTERM, SIG_DFL);
-
-    return EXIT_SUCCESS;
-}
+volatile sig_atomic_t stop_flag = 0;
+size_t currentFileSize = 0;
+int fileCounter = 1;
 
 void handle_signal(int signum)
 {
@@ -163,10 +42,8 @@ void cleanup(int serialPortFD, FILE *outputFile)
 {
     printf("Cleaning up...\n");
     if (outputFile)
-    {
         fflush(outputFile);
-        fclose(outputFile);
-    }
+    fclose(outputFile);
     if (serialPortFD != -1)
         close(serialPortFD);
     printf("Cleaned up\n");
@@ -345,7 +222,7 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
     // printf("Received %02X: ", expectedCommand);
     for (size_t i = 0; i < responseBytes; ++i)
     {
-        // printf("%02X ", (unsigned char)buffer[i]);
+        printf("%02X ", (unsigned char)buffer[i]);
         fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
     }
     fprintf(outputFile, ", ");
@@ -362,31 +239,118 @@ void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair
     fprintf(outputFile, "slno");
     for (size_t i = 0; i < numCommands; ++i)
     {
-        fprintf(outputFile, ", command%d, response%d", i + 1, i + 1);
+        fprintf(outputFile, ", command%d,response%d", i + 1, i + 1);
     }
-    fprintf(outputFile, ", time_elapsed\n");
+    // add time elapsed
+    fprintf(outputFile, ", time_elapsed");
+    fprintf(outputFile, "\n");
 }
 
-void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis)
+int main(int argc, char *argv[])
 {
+    printf("argc: %d\n", argc);
+    for (int i = 0; i < argc; i++)
+    {
+        printf("argv[%d]: %s\n", i, argv[i]);
+    }
+
+    if (argc < 14 || (argc - 10) % 3 != 0)
+    {
+        fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits> <filesize> <file_extension> <intervalMillis> <command1> <responseBytes1> <timeoutMicros1> [<command2> <responseBytes2> <timeoutMicros2> ...]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    int intervalMillis = atoi(argv[9]);
+    if (intervalMillis <= 0)
+    {
+        fprintf(stderr, "Interval must be greater than 0\n");
+        exit(EXIT_FAILURE);
+    }
+
+    const char *serialPortName = argv[1];
+    const char *outputFileName = argv[2];
+    speed_t baudRate = atoi(argv[3]);
+    char parity = argv[4][0];
+    int dataBits = atoi(argv[5]);
+    int stopBits = atoi(argv[6]);
+    size_t filesize = atoi(argv[7]);
+    const char *fileExtension = argv[8];
+
+    size_t numCommands = (argc - 9) / 3;
+
+    struct CommandPair *commandPairs = malloc(numCommands * sizeof(struct CommandPair));
+
+    if (commandPairs == NULL)
+    {
+        perror("Error allocating memory");
+        exit(EXIT_FAILURE);
+    }
+    for (size_t i = 0; i < numCommands; ++i)
+    {
+        commandPairs[i].command = strtol(argv[i * 3 + 10], NULL, 16);
+        commandPairs[i].responseBytes = atoi(argv[i * 3 + 11]);
+        commandPairs[i].timeoutMicros = atoi(argv[i * 3 + 12]);
+    }
+
+    // print command pairs
+    for (size_t i = 0; i < numCommands; ++i)
+    {
+        printf("Command %zu: %02X %zu %u\n", i, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
+    }
+
+    // Execute the Python script before opening the serial port
+    char python_command[MAX_FILE_PATH];
+    snprintf(python_command, sizeof(python_command),
+             "python3 /home/root/sda/python_backend/serial_workaround.py %s %d %c %d %d",
+             serialPortName, (int)baudRate, parity, dataBits, stopBits);
+    system(python_command);
+
+    int serialPortFD = open_serial_port(serialPortName);
+
+    if (serialPortFD == -1)
+    {
+        perror("Error opening serial port");
+        cleanup(-1, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        exit(EXIT_FAILURE);
+    }
+
+    set_serial_parameters(serialPortFD, baudRate, parity, dataBits, stopBits);
+
+    // Register signal handler for graceful termination
+    signal(SIGINT, handle_signal);
+    signal(SIGTERM, handle_signal);
+
+    printf("Starting...\n");
+
+    struct sched_param sp = {.sched_priority = sched_get_priority_max(SCHED_RR)};
+    if (sched_setscheduler(0, SCHED_RR, &sp) != 0)
+    {
+        perror("Error setting process priority");
+        close(serialPortFD);
+        return 1;
+    }
+
+    FILE *outputFile = open_output_file(outputFileName, fileExtension, fileCounter);
+
+    if (!outputFile)
+    {
+        perror("Error opening output file");
+        cleanup(serialPortFD, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+    }
+
+    writeHeaders(outputFile, numCommands, commandPairs);
+
     unsigned long long int counter = 1;
 
     time_t currentTime = time(NULL);
     time_t lastFlushTime = time(NULL);
 
     struct timespec start, now, start1;
-    unsigned long long int tx_elapsed = 0;
 
     while (!stop_flag)
     {
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-        if (counter > 1)
-        {
-            tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
-                         start.tv_nsec / 1000 - start1.tv_nsec / 1000;
-            fprintf(outputFile, "%llu\n", tx_elapsed);
-        }
-        start1 = start;
+
         fprintf(outputFile, "%llu, ", counter);
         for (size_t i = 0; i < numCommands; ++i)
         {
@@ -401,7 +365,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
         long timeoutMicros = 0;
 
         currentTime = time(NULL);
-        if (currentTime - lastFlushTime >= 120)
+        if (currentTime - lastFlushTime >= 10)
         {
             // printf("Flushing...\n");
             fflush(outputFile);
@@ -411,9 +375,20 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
         clock_gettime(CLOCK_MONOTONIC_RAW, &now);
         elapsedMicroseconds = (now.tv_sec - start.tv_sec) * 1000000 +
                               now.tv_nsec / 1000 - start.tv_nsec / 1000;
-        // fprintf(outputFile, "%ld,%ld\n", ((intervalMillis * 1000) - elapsedMicroseconds), (intervalMillis * 1000) - elapsedMicroseconds1);
+        fprintf(outputFile, " %ld\n", ((intervalMillis * 1000) - elapsedMicroseconds));
 
-        usleep((intervalMillis * 1000) - elapsedMicroseconds - 20);
+        usleep((intervalMillis * 1000) - elapsedMicroseconds);
         counter++;
     }
+
+    printf("Stopping...\n");
+
+    // Cleanup and close resources before exiting
+    cleanup(serialPortFD, outputFile);
+
+    // Reset signal handlers to default behavior
+    signal(SIGINT, SIG_DFL);
+    signal(SIGTERM, SIG_DFL);
+
+    return EXIT_SUCCESS;
 }

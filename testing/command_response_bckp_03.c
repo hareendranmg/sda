@@ -7,7 +7,7 @@
 #include <sys/time.h>
 #include <sched.h>
 
-#define SERIAL_PORT "/dev/ttyXR7"
+#define SERIAL_PORT "/dev/ttyXR0"
 
 // Function to set up the serial port
 int setupSerialPort(const char *portName)
@@ -57,7 +57,7 @@ int main()
         return 1;
     }
     char buffer[22];
-    char data_to_write = 0x0F;
+    char data_to_write = 0x1e;
     int bytes_read;
 
     // Timing setup
