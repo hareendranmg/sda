@@ -300,60 +300,36 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
 
     struct timeval timeout;
     timeout.tv_sec = timeoutMicros / 1000000;
-    timeout.tv_usec = timeoutMicros % 1000000;
+    timeout.tv_usec = timeoutMicros;
 
-    // Wait for data to be ready to read or until timeout
     int selectResult = select(serialPortFD + 1, &readSet, NULL, NULL, &timeout);
 
     if (selectResult == -1)
     {
         perror("Error from select");
-        exit(EXIT_FAILURE);
+
+        return 1;
     }
-    else if (selectResult == 0)
+
+    if (FD_ISSET(serialPortFD, &readSet))
     {
-        // Handle timeout
-        // printf("Timeout occurred for command %02X\n", expectedCommand);
-        fprintf(outputFile, "timeout,");
-        return 1; // Indicate timeout
-    } else {
-        do
+        int bytesRead = read(serialPortFD, buffer, responseBytes);
+        if (bytesRead > 0)
         {
-            ssize_t readResult = read(serialPortFD, &command, 1);
-
-            if (readResult == -1)
+            for (int i = 0; i < bytesRead; ++i)
             {
-                perror("Error reading from serial port");
-                continue;
+                fprintf(outputFile, "%02x", buffer[i]);
             }
-
-            buffer[bytesRead++] = command;
-        } while (command != expectedCommand && bytesRead < responseBytes);
-
-        // Read the remaining response bytes
-        ssize_t readResult = read(serialPortFD, buffer + bytesRead, responseBytes - bytesRead);
-
-        if (readResult == -1)
-        {
-            perror("Error reading from serial port");
         }
 
-        // Print the received response
-        // printf("Received %02X: ", expectedCommand);
-        for (size_t i = 0; i < responseBytes; ++i)
-        {
-            // printf("%02X ", (unsigned char)buffer[i]);
-            fprintf(outputFile, "%02X", (unsigned char)buffer[i]);
-        }
+    } else {
+        fprintf(outputFile, "timeout,");
+
+        return 1;
     }
-    // Read until the expected command byte is received
 
     fprintf(outputFile, ", ");
-    // printf("\n");
 
-    // Write the received bytes to the output file
-
-    // Return responseBytes and buffer
     return 0;
 }
 
@@ -394,6 +370,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
             write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
             usleep(200);
             readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
+            tcflush(serialPortFD, TCIOFLUSH);
         }
         // fwrite newline
         if (counter == 1) {
