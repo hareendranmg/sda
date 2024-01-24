@@ -11,8 +11,8 @@ serial_port = serial.Serial(port_name, baud_rate, parity="O")
 if serial_port :
     try:
         command = bytearray()
+        command.append(0x0f)
         while True:
-            command.append(0x0F)
             serial_port.write(command)
             time.sleep(0.1)
             received_data = serial_port.read(22)
@@ -22,4 +22,3 @@ if serial_port :
     finally:
         # Close the serial port in a finally block to ensure it's closed even if an exception occurs
         serial_port.close()
-        # serial_port2.close()

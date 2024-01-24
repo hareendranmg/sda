@@ -1,4 +1,4 @@
-// ./command_response /dev/ttyXR7 command_response 2000000 O 8 1 10240000 csv 100 0f 22 100 1e 22 100 12 10 10
+// ./command_response /dev/ttyXR0 command_response 2000000 O 8 1 10240000 csv 100 0f 22 100 1e 22 100
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,6 +31,10 @@ struct CommandPair
 // Function prototypes
 void handle_signal(int signum);
 void cleanup(int serialPortFD, FILE *outputFile);
+void parseArguments(int argc, char *argv[], const char **serialPortName, const char **outputFileName,
+                    speed_t *baudRate, char *parity, int *dataBits, int *stopBits, size_t *filesize,
+                    const char **fileExtension, int *intervalMillis, struct CommandPair **commandPairs,
+                    size_t *numCommands);
 int open_serial_port(const char *serialPortName);
 void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int dataBits, int stopBits);
 FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter);
@@ -41,55 +45,20 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
 
 int main(int argc, char *argv[])
 {
-    printf("argc: %d\n", argc);
-    for (int i = 0; i < argc; i++)
-    {
-        printf("argv[%d]: %s\n", i, argv[i]);
-    }
+    const char *serialPortName;
+    const char *outputFileName;
+    speed_t baudRate;
+    char parity;
+    int dataBits;
+    int stopBits;
+    size_t filesize;
+    const char *fileExtension;
+    int intervalMillis;
+    struct CommandPair *commandPairs;
+    size_t numCommands;
 
-    if (argc < 14 || (argc - 10) % 3 != 0)
-    {
-        fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits> <filesize> <file_extension> <intervalMillis> <command1> <responseBytes1> <timeoutMicros1> [<command2> <responseBytes2> <timeoutMicros2> ...]\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    int intervalMillis = atoi(argv[9]);
-    if (intervalMillis <= 0)
-    {
-        fprintf(stderr, "Interval must be greater than 0\n");
-        exit(EXIT_FAILURE);
-    }
-
-    const char *serialPortName = argv[1];
-    const char *outputFileName = argv[2];
-    speed_t baudRate = atoi(argv[3]);
-    char parity = argv[4][0];
-    int dataBits = atoi(argv[5]);
-    int stopBits = atoi(argv[6]);
-    size_t filesize = atoi(argv[7]);
-    const char *fileExtension = argv[8];
-
-    size_t numCommands = (argc - 9) / 3;
-
-    struct CommandPair *commandPairs = malloc(numCommands * sizeof(struct CommandPair));
-
-    if (commandPairs == NULL)
-    {
-        perror("Error allocating memory");
-        exit(EXIT_FAILURE);
-    }
-    for (size_t i = 0; i < numCommands; ++i)
-    {
-        commandPairs[i].command = strtol(argv[i * 3 + 10], NULL, 16);
-        commandPairs[i].responseBytes = atoi(argv[i * 3 + 11]);
-        commandPairs[i].timeoutMicros = atoi(argv[i * 3 + 12]);
-    }
-
-    // print command pairs
-    for (size_t i = 0; i < numCommands; ++i)
-    {
-        printf("Command %zu: %02X %zu %u\n", i, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
-    }
+    parseArguments(argc, argv, &serialPortName, &outputFileName, &baudRate, &parity, &dataBits,
+                   &stopBits, &filesize, &fileExtension, &intervalMillis, &commandPairs, &numCommands);
 
     // Execute the Python script before opening the serial port
     char python_command[MAX_FILE_PATH];
@@ -170,6 +139,57 @@ void cleanup(int serialPortFD, FILE *outputFile)
     if (serialPortFD != -1)
         close(serialPortFD);
     printf("Cleaned up\n");
+}
+
+void parseArguments(int argc, char *argv[], const char **serialPortName, const char **outputFileName,
+                    speed_t *baudRate, char *parity, int *dataBits, int *stopBits, size_t *filesize,
+                    const char **fileExtension, int *intervalMillis, struct CommandPair **commandPairs,
+                    size_t *numCommands)
+{
+    printf("argc: %d\n", argc);
+    for (int i = 0; i < argc; i++)
+    {
+        printf("argv[%d]: %s\n", i, argv[i]);
+    }
+
+    if (argc < 13 || (argc - 10) % 3 != 0)
+    {
+        fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits> <filesize> <file_extension> <intervalMillis> <command1> <responseBytes1> <timeoutMicros1> [<command2> <responseBytes2> <timeoutMicros2> ...]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    *intervalMillis = atoi(argv[9]);
+    if (*intervalMillis <= 0)
+    {
+        fprintf(stderr, "Interval must be greater than 0\n");
+        exit(EXIT_FAILURE);
+    }
+
+    *serialPortName = argv[1];
+    *outputFileName = argv[2];
+    *baudRate = atoi(argv[3]);
+    *parity = argv[4][0];
+    *dataBits = atoi(argv[5]);
+    *stopBits = atoi(argv[6]);
+    *filesize = atoi(argv[7]);
+    *fileExtension = argv[8];
+
+    *numCommands = (argc - 9) / 3;
+
+    *commandPairs = malloc(*numCommands * sizeof(struct CommandPair));
+
+    if (*commandPairs == NULL)
+    {
+        perror("Error allocating memory");
+        exit(EXIT_FAILURE);
+    }
+
+    for (size_t i = 0; i < *numCommands; ++i)
+    {
+        (*commandPairs)[i].command = strtol(argv[i * 3 + 10], NULL, 16);
+        (*commandPairs)[i].responseBytes = atoi(argv[i * 3 + 11]);
+        (*commandPairs)[i].timeoutMicros = atoi(argv[i * 3 + 12]);
+    }
 }
 
 int open_serial_port(const char *serialPortName)
@@ -293,6 +313,8 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
     unsigned char buffer[responseBytes];
     size_t bytesRead = 0;
     unsigned char command;
+    struct timespec now;
+    char nowString[32];
 
     fd_set readSet;
     FD_ZERO(&readSet);
@@ -316,14 +338,19 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
         int bytesRead = read(serialPortFD, buffer, responseBytes);
         if (bytesRead > 0)
         {
+            clock_gettime(CLOCK_REALTIME, &now);
+            timespec_to_hhmmssmsus(&now, nowString, sizeof(nowString));
             for (int i = 0; i < bytesRead; ++i)
             {
                 fprintf(outputFile, "%02x", buffer[i]);
             }
+            fprintf(outputFile, ", %s", nowString);
         }
 
     } else {
-        fprintf(outputFile, "timeout,");
+        clock_gettime(CLOCK_REALTIME, &now);
+        timespec_to_hhmmssmsus(&now, nowString, sizeof(nowString));
+        fprintf(outputFile, "timeout, %s", nowString);
 
         return 1;
     }
@@ -338,9 +365,9 @@ void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair
     fprintf(outputFile, "slno");
     for (size_t i = 0; i < numCommands; ++i)
     {
-        fprintf(outputFile, ", command%d, response%d", i + 1, i + 1);
+        fprintf(outputFile, ", command_%d, command_%d_tx_time, response_%d, response_%d_rx_time", i + 1, i + 1, i + 1, i + 1);
     }
-    fprintf(outputFile, ", time_elapsed\n");
+    fprintf(outputFile, ", time_elapsed (in milli seconds)\n");
 }
 
 void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis)
@@ -353,23 +380,31 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
     struct timespec start, now, start1;
     unsigned long long int tx_elapsed = 0;
 
+    char nowString[32];
+
     while (!stop_flag)
     {
-        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+        clock_gettime(CLOCK_REALTIME, &start);
         if (counter > 2)
         {
             tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
                          start.tv_nsec / 1000 - start1.tv_nsec / 1000;
-            fprintf(outputFile, "%llu\n", tx_elapsed);
+            fprintf(outputFile, ", %llu\n", tx_elapsed);
         }
         start1 = start;
         fprintf(outputFile, "%llu, ", counter);
         for (size_t i = 0; i < numCommands; ++i)
         {
-            fprintf(outputFile, "%02X, ", commandPairs[i].command);
+            clock_gettime(CLOCK_REALTIME, &now);
+            timespec_to_hhmmssmsus(&now, nowString, sizeof(nowString));
+
             write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
+            fprintf(outputFile, "%02X, %s, ", commandPairs[i].command, nowString);
+
             usleep(200);
+
             readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
+
             tcflush(serialPortFD, TCIOFLUSH);
         }
         // fwrite newline
@@ -382,12 +417,11 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
         currentTime = time(NULL);
         if (currentTime - lastFlushTime >= 120)
         {
-            // printf("Flushing...\n");
             fflush(outputFile);
             lastFlushTime = currentTime;
         }
 
-        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        clock_gettime(CLOCK_REALTIME, &now);
         elapsedMicroseconds = (now.tv_sec - start.tv_sec) * 1000000 +
                               now.tv_nsec / 1000 - start.tv_nsec / 1000;
         // fprintf(outputFile, "%ld,%ld\n", ((intervalMillis * 1000) - elapsedMicroseconds), (intervalMillis * 1000) - elapsedMicroseconds1);

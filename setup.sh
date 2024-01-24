@@ -1,11 +1,8 @@
+#!/bin/bash
+
 # connmanctl services
 # connmanctl config ethernet_XXXX_YYYY --ipv4 manual 192.168.10.100 255.255.255.0 192.168.10.1 --nameservers 8.8.8.8 4.4.4.4 
 # connmanctl config <ethernet_service> --ipv4 manual <ip_address> <netmask> <gateway> --nameservers <dns> <alternate_dns> 
-
-# cd to /lib/modules/5.15.129-6.4.0-devel+git.67c3153d20ff/build
-# Execute make modules_prepare 
-
-#!/bin/bash
 
 # Install micro
 curl https://getmic.ro | bash && mv micro /usr/bin
@@ -35,6 +32,18 @@ pip3 install pyserial
 # Clone sda support library at /home/root location
 # echo "Cloning sda support library..."
 # git clone https://github.com/hareendranmg/sda.git /home/root/sda
+
+# Additional commands
+# Change directory to kernel build directory
+cd /lib/modules/5.15.129-6.4.0-devel+git.67c3153d20ff/build
+
+# Execute make modules_prepare
+echo "Executing make modules_prepare..."
+make modules_prepare
+
+# Run sda installation script
+echo "Running xrv installation script..."
+/home/root/sda/install_xrv.sh
 
 # Reboot if all tasks are done correctly
 read -p "All tasks completed successfully. Do you want to reboot now? (y/n): " choice
