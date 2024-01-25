@@ -321,7 +321,7 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
     FD_SET(serialPortFD, &readSet);
 
     struct timeval timeout;
-    timeout.tv_sec = timeoutMicros / 1000000;
+    timeout.tv_sec = 0;
     timeout.tv_usec = timeoutMicros;
 
     int selectResult = select(serialPortFD + 1, &readSet, NULL, NULL, &timeout);
@@ -377,10 +377,11 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
     time_t currentTime = time(NULL);
     time_t lastFlushTime = time(NULL);
 
-    struct timespec start, now, start1;
+    struct timespec start, now, start1, tx, rx;
     unsigned long long int tx_elapsed = 0;
 
     char nowString[32];
+    unsigned char buffer[128];
 
     while (!stop_flag)
     {
@@ -395,17 +396,36 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t numCommands, str
         fprintf(outputFile, "%llu, ", counter);
         for (size_t i = 0; i < numCommands; ++i)
         {
-            clock_gettime(CLOCK_REALTIME, &now);
-            timespec_to_hhmmssmsus(&now, nowString, sizeof(nowString));
 
             write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
+            clock_gettime(CLOCK_REALTIME, &tx);
+
+            int bytesRead = read(serialPortFD, buffer, commandPairs[i].responseBytes);
+            clock_gettime(CLOCK_REALTIME, &rx);
+
+            timespec_to_hhmmssmsus(&tx, nowString, sizeof(nowString));
             fprintf(outputFile, "%02X, %s, ", commandPairs[i].command, nowString);
 
-            usleep(200);
+            if (bytesRead > 0)
+            {
+                for (int i = 0; i < bytesRead; ++i)
+                {
+                    fprintf(outputFile, "%02x", buffer[i]);
+                }
+            }
+            else
+            {
+                fprintf(outputFile, "timeout");
+            }
 
-            readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
+            timespec_to_hhmmssmsus(&rx, nowString, sizeof(nowString));
+            fprintf(outputFile, ", %s, ", nowString);
+
+
+            // readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
 
             tcflush(serialPortFD, TCIOFLUSH);
+            usleep(100);
         }
         // fwrite newline
         if (counter == 1) {
