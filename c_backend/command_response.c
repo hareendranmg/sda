@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
         printf("argv[%d]: %s\n", i, argv[i]);
     }
 
-    if (argc < 14 || (argc - 10) % 3 != 0)
+    if (argc < 13 || (argc - 10) % 3 != 0)
     {
         fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits> <filesize> <file_extension> <intervalMillis> <command1> <responseBytes1> <timeoutMicros1> [<command2> <responseBytes2> <timeoutMicros2> ...]\n", argv[0]);
         exit(EXIT_FAILURE);
