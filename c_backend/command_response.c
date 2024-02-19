@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <sys/select.h>
 #include <stddef.h>
+#include <sys/stat.h>
 
 #define MAX_FILE_PATH 256
 
@@ -29,6 +30,7 @@ struct CommandPair
 };
 
 // Function prototypes
+off_t get_file_size(FILE *file);
 void handle_signal(int signum);
 void cleanup(int serialPortFD, FILE *outputFile);
 int open_serial_port(const char *serialPortName);
@@ -145,6 +147,27 @@ int main(int argc, char *argv[])
     signal(SIGTERM, SIG_DFL);
 
     return EXIT_SUCCESS;
+}
+
+off_t get_file_size(FILE *file)
+{
+    // Get the file descriptor associated with the FILE pointer
+    int fd = fileno(file);
+    if (fd == -1)
+    {
+        perror("Error getting file descriptor");
+        return -1; // Error occurred
+    }
+
+    // Get file status using fstat
+    struct stat fileStat;
+    if (fstat(fd, &fileStat) == -1)
+    {
+        perror("Error getting file status");
+        return -1; // Error occurred
+    }
+
+    return fileStat.st_size;
 }
 
 void handle_signal(int signum)
@@ -359,7 +382,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
     unsigned long long int tx_elapsed = 0;
 
     // header bytes count
-    currentFileSize = 150;
+    currentFileSize = 0;
 
     while (!stop_flag)
     {
@@ -369,15 +392,13 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
                          start.tv_nsec / 1000 - start1.tv_nsec / 1000;
             fprintf(outputFile, "%llu\n", tx_elapsed);
-            //TODO: calculate tx_elapsed  bytes count
-            currentFileSize += 20;
         }
 
+        currentFileSize = get_file_size(outputFile);
         if (currentFileSize > filesize)
         {
             fclose(outputFile);
             outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter);
-            currentFileSize = 0;
         }
 
         start1 = start;
@@ -385,10 +406,9 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
         for (size_t i = 0; i < numCommands; ++i)
         {
             fprintf(outputFile, ", %02X, ", commandPairs[i].command);
-            currentFileSize += 3;
             write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
             usleep(200);
-            currentFileSize += readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
+            readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
             tcflush(serialPortFD, TCIOFLUSH);
         }
         // fwrite newline
@@ -412,7 +432,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
                               now.tv_nsec / 1000 - start.tv_nsec / 1000;
         // fprintf(outputFile, "%ld,%ld\n", ((intervalMillis * 1000) - elapsedMicroseconds), (intervalMillis * 1000) - elapsedMicroseconds1);
 
-        usleep((intervalMillis * 1000) - elapsedMicroseconds - 30);
+        usleep((intervalMillis * 1000) - elapsedMicroseconds - 20);
         counter++;
     }
 }
