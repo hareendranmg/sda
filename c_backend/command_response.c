@@ -387,11 +387,12 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
     while (!stop_flag)
     {
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+
         if (counter > 2)
         {
             tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
                          start.tv_nsec / 1000 - start1.tv_nsec / 1000;
-            fprintf(outputFile, "%llu\n", tx_elapsed);
+            fprintf(outputFile, ", %llu\n", tx_elapsed);
         }
 
         currentFileSize = get_file_size(outputFile);
@@ -411,10 +412,10 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
             tcflush(serialPortFD, TCIOFLUSH);
         }
-        // fwrite newline
+        // fprintf ", 0\n"
         if (counter == 1)
         {
-            fwrite("\n", sizeof(char), 1, outputFile);
+            fprintf(outputFile, ", 0\n");
         }
         long elapsedMicroseconds = 0;
         long timeoutMicros = 0;
