@@ -351,7 +351,7 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
     }
     else
     {
-        fprintf(outputFile, "timeout, ");
+        fprintf(outputFile, "timeout");
 
         return 9;
     }
