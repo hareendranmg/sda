@@ -13,6 +13,7 @@
 #include <sys/select.h>
 #include <stddef.h>
 #include <sys/stat.h>
+#include <arpa/inet.h> // for ntohs, ntohl, and ntohf
 
 #define MAX_FILE_PATH 256
 
@@ -27,7 +28,21 @@ struct CommandPair
     unsigned char command;
     size_t responseBytes;
     useconds_t timeoutMicros;
+    char dataTypes[100]; // Adjust size as needed
 };
+double ntohd(double value)
+{
+    uint64_t ui = *(uint64_t *)&value;
+    ui = ((ui & 0x00000000000000ffULL) << 56) |
+         ((ui & 0x000000000000ff00ULL) << 40) |
+         ((ui & 0x0000000000ff0000ULL) << 24) |
+         ((ui & 0x00000000ff000000ULL) << 8) |
+         ((ui & 0x000000ff00000000ULL) >> 8) |
+         ((ui & 0x0000ff0000000000ULL) >> 24) |
+         ((ui & 0x00ff000000000000ULL) >> 40) |
+         ((ui & 0xff00000000000000ULL) >> 56);
+    return *(double *)&ui;
+}
 
 // Function prototypes
 off_t get_file_size(FILE *file);
@@ -37,7 +52,7 @@ int open_serial_port(const char *serialPortName);
 void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int dataBits, int stopBits);
 FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter);
 void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size);
-int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros);
+int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros, const struct CommandPair commandPairs);
 void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs);
 void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis);
 
@@ -49,7 +64,9 @@ int main(int argc, char *argv[])
         printf("argv[%d]: %s\n", i, argv[i]);
     }
 
-    if (argc < 13 || (argc - 10) % 3 != 0)
+    printf("%d < 14 || (%d - 11) %% 4 != 0 = %d\n", argc, argc, ( (argc - 11) % 3 != 0));
+
+    if (argc < 14 || (argc - 10) % 4 != 0)
     {
         fprintf(stderr, "Usage: %s <serial_port> <output_file> <baud_rate> <parity> <data_bits> <stop_bits> <filesize> <file_extension> <intervalMillis> <command1> <responseBytes1> <timeoutMicros1> [<command2> <responseBytes2> <timeoutMicros2> ...]\n", argv[0]);
         exit(EXIT_FAILURE);
@@ -71,7 +88,7 @@ int main(int argc, char *argv[])
     size_t filesize = atoi(argv[7]);
     const char *fileExtension = argv[8];
 
-    size_t numCommands = (argc - 9) / 3;
+    size_t numCommands = (argc - 10) / 4;
 
     struct CommandPair *commandPairs = malloc(numCommands * sizeof(struct CommandPair));
 
@@ -82,9 +99,11 @@ int main(int argc, char *argv[])
     }
     for (size_t i = 0; i < numCommands; ++i)
     {
-        commandPairs[i].command = strtol(argv[i * 3 + 10], NULL, 16);
-        commandPairs[i].responseBytes = atoi(argv[i * 3 + 11]);
-        commandPairs[i].timeoutMicros = atoi(argv[i * 3 + 12]);
+        commandPairs[i].command = strtol(argv[i * 4 + 10], NULL, 16);
+        commandPairs[i].responseBytes = atoi(argv[i * 4 + 11]);
+        commandPairs[i].timeoutMicros = atoi(argv[i * 4 + 12]);
+        strncpy(commandPairs[i].dataTypes, argv[i * 4 + 13], sizeof(commandPairs[i].dataTypes) - 1);
+        commandPairs[i].dataTypes[sizeof(commandPairs[i].dataTypes) - 1] = '\0'; // Ensure null termination
     }
 
     // print command pairs
@@ -313,7 +332,7 @@ void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size)
     snprintf(output, size, "%02d:%02d:%02d.%03ld.%03ld", tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, ms, us);
 }
 
-int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros)
+int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros, const struct CommandPair commandPairs)
 {
     unsigned char buffer[responseBytes];
     size_t bytesRead = 0;
@@ -345,6 +364,96 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
             {
                 fprintf(outputFile, "%02x", buffer[i]);
             }
+            fprintf(outputFile, "start");
+            char *dataTypePtr = strtok(commandPairs.dataTypes, ","); // Parse data types string
+            // copy the buffer to a new pointer
+            unsigned char *buffer_new = buffer;
+
+            while (dataTypePtr != NULL)
+            {
+                if (strcmp(dataTypePtr, "hex8") == 0)
+                {
+                    fprintf(outputFile, ",hex8 %02x", buffer_new[0]);
+                    buffer_new += 1;
+                }
+                else if (strcmp(dataTypePtr, "hex16") == 0)
+                {
+                    uint16_t value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",hex16 %04x", value);
+                    buffer_new += 2;
+                }
+                else if (strcmp(dataTypePtr, "hex32") == 0)
+                {
+                    uint32_t value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",hex32 %08x", value);
+                    buffer_new += 4;
+                }
+                else if (strcmp(dataTypePtr, "uint8") == 0)
+                {
+                    uint8_t value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",uint8 %u", value);
+                    buffer_new += 1;
+                }
+                else if (strcmp(dataTypePtr, "uint16") == 0)
+                {
+                    uint16_t value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",uint16 %u", value);
+                    buffer_new += 2;
+                }
+                else if (strcmp(dataTypePtr, "uint32") == 0)
+                {
+                    uint32_t value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",uint32 %u", value);
+                    buffer_new += 4;
+                }
+                else if (strcmp(dataTypePtr, "int32") == 0)
+                {
+                    int32_t value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",int32 %d", value);
+                    buffer_new += 4;
+                }
+                else if (strcmp(dataTypePtr, "int16") == 0)
+                {
+                    int16_t value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",int16 %d", value);
+                    buffer_new += 2;
+                }
+                else if (strcmp(dataTypePtr, "int8") == 0)
+                {
+                    int8_t value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",int8 %d", value);
+                    buffer_new += 1;
+                }
+                else if (strcmp(dataTypePtr, "float32") == 0)
+                {
+                    float value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",float32 %f", value);
+                    buffer_new += 4;
+                }
+                else if (strcmp(dataTypePtr, "float64") == 0)
+                {
+                    double value;
+                    memcpy(&value, buffer_new, sizeof(value));
+                    fprintf(outputFile, ",float64 %f", value);
+                    buffer_new += 8;
+                }
+                else
+                {
+                    fprintf(outputFile, ",*** ");
+                }
+
+                dataTypePtr = strtok(NULL, ","); // Get next data type
+            }
+            fprintf(outputFile, "end");
         }
 
         return bytesRead;
@@ -409,7 +518,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             fprintf(outputFile, ", %02X, ", commandPairs[i].command);
             write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
             usleep(200);
-            readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
+            readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros, commandPairs[i]);
             tcflush(serialPortFD, TCIOFLUSH);
         }
         // fprintf ", 0\n"
