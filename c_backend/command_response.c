@@ -1,4 +1,5 @@
 // ./command_response /dev/ttyXR7 command_response 2000000 O 8 1 10240000 csv 100 0f 22 100 1e 22 100 12 10 10
+// ./ command_response /dev/ttyXR0 command_response 2000000 O 8 1 10240000 csv 1000 0f 22 500 hex8, int32, float32, uint32, int16, int32, uint16, uint8
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,8 +18,8 @@
 
 #define MAX_FILE_PATH 256
 
-// Global variables
-volatile sig_atomic_t stop_flag = 0;
+                                                                                                                                                  // Global variables
+                                                                                                                                                  volatile sig_atomic_t stop_flag = 0;
 size_t currentFileSize = 0;
 int fileCounter = 1;
 
