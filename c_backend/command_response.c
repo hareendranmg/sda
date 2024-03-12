@@ -30,14 +30,16 @@ struct CommandPair
 // Function prototypes
 off_t get_file_size(FILE *file);
 void handle_signal(int signum);
-void cleanup(int serialPortFD, FILE *outputFile);
+void cleanup(int serialPortFD, FILE *outputFileRaw, FILE *outputFileConverted);
 int open_serial_port(const char *serialPortName);
 void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int dataBits, int stopBits);
-FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter);
+FILE *open_output_file_raw(const char *outputFileName, const char *fileExtension, int counter);
+FILE *open_output_file_converted(const char *outputFileName, const char *fileExtension, int counter);
 void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size);
-int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros, const struct CommandPair commandPairs);
-void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs);
-void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis);
+int readResponse(FILE *outputFileRaw, FILE *outputFileConverted, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros, const struct CommandPair commandPairs);
+void writeHeadersRaw(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs);
+void writeHeadersConverted(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs);
+void executeCommands(int serialPortFD, FILE *outputFileRaw, FILE *outputFileConverted, size_t filesize, const char *outputFileNameRaw, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis);
 
 int main(int argc, char *argv[])
 {
@@ -107,7 +109,7 @@ int main(int argc, char *argv[])
     if (serialPortFD == -1)
     {
         perror("Error opening serial port");
-        cleanup(-1, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        cleanup(-1, NULL, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
         exit(EXIT_FAILURE);
     }
 
@@ -127,22 +129,24 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    FILE *outputFile = open_output_file(outputFileName, fileExtension, fileCounter);
+    FILE *outputFileRaw = open_output_file_raw(outputFileName, fileExtension, fileCounter);
+    FILE *outputFileConverted = open_output_file_converted(outputFileName, fileExtension, fileCounter);
 
-    if (!outputFile)
+    if (!outputFileRaw || !outputFileConverted)
     {
         perror("Error opening output file");
-        cleanup(serialPortFD, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        cleanup(serialPortFD, NULL, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
     }
 
-    writeHeaders(outputFile, numCommands, commandPairs);
+    writeHeadersRaw(outputFileRaw, numCommands, commandPairs);
+    writeHeadersConverted(outputFileConverted, numCommands, commandPairs);
 
-    executeCommands(serialPortFD, outputFile, filesize, outputFileName, fileExtension, numCommands, commandPairs, intervalMillis);
+    executeCommands(serialPortFD, outputFileRaw, outputFileConverted, filesize, outputFileName, fileExtension, numCommands, commandPairs, intervalMillis);
 
     printf("Stopping...\n");
 
     // Cleanup and close resources before exiting
-    cleanup(serialPortFD, outputFile);
+    cleanup(serialPortFD, outputFileRaw, outputFileConverted);
 
     // Reset signal handlers to default behavior
     signal(SIGINT, SIG_DFL);
@@ -184,14 +188,20 @@ void handle_signal(int signum)
     printf("Exiting signal handler\n");
 }
 
-void cleanup(int serialPortFD, FILE *outputFile)
+void cleanup(int serialPortFD, FILE *outputFileRaw, FILE *outputFileConverted)
 {
     printf("Cleaning up...\n");
-    if (outputFile)
+    if (outputFileRaw)
     {
-        fflush(outputFile);
-        fclose(outputFile);
+        fflush(outputFileRaw);
+        fclose(outputFileRaw);
     }
+    if (outputFileConverted)
+    {
+        fflush(outputFileConverted);
+        fclose(outputFileConverted);
+    }
+
     if (serialPortFD != -1)
         close(serialPortFD);
     printf("Cleaned up\n");
@@ -214,7 +224,7 @@ void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int 
     if (tcgetattr(serialPortFD, &tty) != 0)
     {
         perror("Error getting serial port attributes");
-        cleanup(serialPortFD, NULL);
+        cleanup(serialPortFD, NULL, NULL);
         exit(EXIT_FAILURE);
     }
 
@@ -260,7 +270,7 @@ void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int 
     else
     {
         fprintf(stderr, "Invalid number of data bits\n");
-        cleanup(serialPortFD, NULL);
+        cleanup(serialPortFD, NULL, NULL);
         exit(EXIT_FAILURE);
     }
 
@@ -276,32 +286,48 @@ void set_serial_parameters(int serialPortFD, speed_t baudRate, char parity, int 
     else
     {
         fprintf(stderr, "Invalid number of stop bits\n");
-        cleanup(serialPortFD, NULL);
+        cleanup(serialPortFD, NULL, NULL);
         exit(EXIT_FAILURE);
     }
 
     if (tcsetattr(serialPortFD, TCSAFLUSH, &tty) != 0)
     {
         perror("Error setting serial port attributes");
-        cleanup(serialPortFD, NULL);
+        cleanup(serialPortFD, NULL, NULL);
         exit(EXIT_FAILURE);
     }
 }
 
-FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter)
+FILE *open_output_file_raw(const char *outputFileName, const char *fileExtension, int counter)
 {
     char newFileName[MAX_FILE_PATH];
-    snprintf(newFileName, sizeof(newFileName), "%s_%d.%s", outputFileName, counter, fileExtension);
-    FILE *outputFile = fopen(newFileName, "wb");
+    snprintf(newFileName, sizeof(newFileName), "%s_raw_%d.%s", outputFileName, counter, fileExtension);
+    FILE *outputFileRaw = fopen(newFileName, "wb");
 
-    if (!outputFile)
+    if (!outputFileRaw)
     {
         perror("Error opening output file");
-        cleanup(-1, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        cleanup(-1, NULL, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
         exit(EXIT_FAILURE);
     }
 
-    return outputFile;
+    return outputFileRaw;
+}
+
+FILE *open_output_file_converted(const char *outputFileName, const char *fileExtension, int counter)
+{
+    char newFileName[MAX_FILE_PATH];
+    snprintf(newFileName, sizeof(newFileName), "%s_converted_%d.%s", outputFileName, counter, fileExtension);
+    FILE *outputFileRaw = fopen(newFileName, "wb");
+
+    if (!outputFileRaw)
+    {
+        perror("Error opening output file");
+        cleanup(-1, NULL, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        exit(EXIT_FAILURE);
+    }
+
+    return outputFileRaw;
 }
 
 void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size)
@@ -315,9 +341,9 @@ void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size)
     snprintf(output, size, "%02d:%02d:%02d.%03ld.%03ld", tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, ms, us);
 }
 
-int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros, const struct CommandPair commandPairs)
+int readResponse(FILE *outputFileRaw, FILE *outputFileConverted, int serialPortFD, unsigned char expectedCommand, size_t responseBytes, useconds_t timeoutMicros, struct CommandPair commandPairs)
 {
-    unsigned char buffer[responseBytes];
+    unsigned char *buffer = malloc(responseBytes);
     size_t bytesRead = 0;
     unsigned char command;
 
@@ -340,130 +366,142 @@ int readResponse(FILE *outputFile, int serialPortFD, unsigned char expectedComma
 
     if (FD_ISSET(serialPortFD, &readSet))
     {
+        // memset(buffer, 0, sizeof(buffer));
         int bytesRead = read(serialPortFD, buffer, responseBytes);
         if (bytesRead > 0)
         {
             for (int i = 0; i < bytesRead; ++i)
             {
-                fprintf(outputFile, "%02x", buffer[i]);
+                fprintf(outputFileRaw, "%02x", buffer[i]);
             }
-            fprintf(outputFile, "start");
             char *dataTypePtr = strtok(commandPairs.dataTypes, ","); // Parse data types string
             // copy the buffer to a new pointer
-            unsigned char *buffer_new = buffer;
+            // unsigned char *buffer_new = buffer;
+            // memset(buffer_new, 0, sizeof(buffer));
 
             while (dataTypePtr != NULL)
             {
                 if (strcmp(dataTypePtr, "hex8") == 0)
                 {
-                    fprintf(outputFile, ",hex8 %02x", buffer_new[0]);
-                    buffer_new += 1;
+                    fprintf(outputFileConverted, " %02x", buffer[0]);
+                    buffer += 1;
                 }
                 else if (strcmp(dataTypePtr, "hex16") == 0)
                 {
                     uint16_t value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",hex16 %04x", value);
-                    buffer_new += 2;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %04x", value);
+                    buffer += 2;
                 }
                 else if (strcmp(dataTypePtr, "hex32") == 0)
                 {
                     uint32_t value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",hex32 %08x", value);
-                    buffer_new += 4;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %08x", value);
+                    buffer += 4;
                 }
                 else if (strcmp(dataTypePtr, "uint8") == 0)
                 {
                     uint8_t value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",uint8 %u", value);
-                    buffer_new += 1;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %u", value);
+                    buffer += 1;
                 }
                 else if (strcmp(dataTypePtr, "uint16") == 0)
                 {
                     uint16_t value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",uint16 %u", value);
-                    buffer_new += 2;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %u", value);
+                    buffer += 2;
                 }
                 else if (strcmp(dataTypePtr, "uint32") == 0)
                 {
                     uint32_t value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",uint32 %u", value);
-                    buffer_new += 4;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %u", value);
+                    buffer += 4;
                 }
                 else if (strcmp(dataTypePtr, "int32") == 0)
                 {
                     int32_t value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",int32 %d", value);
-                    buffer_new += 4;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %d", value);
+                    buffer += 4;
                 }
                 else if (strcmp(dataTypePtr, "int16") == 0)
                 {
                     int16_t value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",int16 %d", value);
-                    buffer_new += 2;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %d", value);
+                    buffer += 2;
                 }
                 else if (strcmp(dataTypePtr, "int8") == 0)
                 {
                     int8_t value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",int8 %d", value);
-                    buffer_new += 1;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %d", value);
+                    buffer += 1;
                 }
                 else if (strcmp(dataTypePtr, "float32") == 0)
                 {
                     float value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",float32 %f", value);
-                    buffer_new += 4;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %f", value);
+                    buffer += 4;
                 }
                 else if (strcmp(dataTypePtr, "float64") == 0)
                 {
                     double value;
-                    memcpy(&value, buffer_new, sizeof(value));
-                    fprintf(outputFile, ",float64 %f", value);
-                    buffer_new += 8;
+                    memcpy(&value, buffer, sizeof(value));
+                    fprintf(outputFileConverted, " %f", value);
+                    buffer += 8;
                 }
                 else
                 {
-                    fprintf(outputFile, ",*** ");
+                    fprintf(outputFileConverted, ",");
                 }
 
                 dataTypePtr = strtok(NULL, ","); // Get next data type
             }
-            fprintf(outputFile, "end");
         }
 
         return bytesRead;
     }
     else
     {
-        fprintf(outputFile, "timeout");
+        fprintf(outputFileRaw, "timeout");
 
         return 9;
     }
 
-    fprintf(outputFile, ", ");
+    fprintf(outputFileRaw, ", ");
 
     return 0;
 }
 
-void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs)
+void writeHeadersRaw(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs)
 {
     fprintf(outputFile, "slno");
     for (size_t i = 0; i < numCommands; ++i)
     {
         fprintf(outputFile, ", command%d, response%d", i + 1, i + 1);
     }
+    fprintf(outputFile, ", tx_time");
     fprintf(outputFile, ", time_elapsed\n");
 }
 
-void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis)
+void writeHeadersConverted(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs)
+{
+    fprintf(outputFile, "slno");
+    for (size_t i = 0; i < numCommands; ++i)
+    {
+        fprintf(outputFile, ", command%d, converted_response%d", i + 1, i + 1);
+    }
+    fprintf(outputFile, ", tx_time");
+    fprintf(outputFile, ", time_elapsed\n");
+}
+
+void executeCommands(int serialPortFD, FILE *outputFileRaw, FILE *outputFileConverted, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis)
 {
     unsigned long long int counter = 1;
 
@@ -484,30 +522,39 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
         {
             tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
                          start.tv_nsec / 1000 - start1.tv_nsec / 1000;
-            fprintf(outputFile, ", %llu\n", tx_elapsed);
+            // write start time to file
+            fprintf(outputFileRaw, ", %llu", start.tv_sec);
+            fprintf(outputFileRaw, ", %llu\n", tx_elapsed);
+            fprintf(outputFileConverted, ", %llu", start.tv_sec);
+            fprintf(outputFileConverted, ", %llu\n", tx_elapsed);
         }
 
-        currentFileSize = get_file_size(outputFile);
+        currentFileSize = get_file_size(outputFileRaw);
         if (currentFileSize > filesize)
         {
-            fclose(outputFile);
-            outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter);
+            fclose(outputFileRaw);
+            fclose(outputFileConverted);
+            outputFileRaw = open_output_file_raw(outputFileName, fileExtension, ++fileCounter);
+            outputFileConverted = open_output_file_converted(outputFileName, fileExtension, fileCounter);
         }
 
         start1 = start;
-        fprintf(outputFile, "%llu", counter);
+        fprintf(outputFileRaw, "%llu", counter);
+        fprintf(outputFileConverted, "%llu", counter);
         for (size_t i = 0; i < numCommands; ++i)
         {
-            fprintf(outputFile, ", %02X, ", commandPairs[i].command);
+            fprintf(outputFileRaw, ", %02X, ", commandPairs[i].command);
+            fprintf(outputFileConverted, ", %02X,", commandPairs[i].command);
             write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
             usleep(200);
-            readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros, commandPairs[i]);
+            readResponse(outputFileRaw, outputFileConverted, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros, commandPairs[i]);
             tcflush(serialPortFD, TCIOFLUSH);
         }
         // fprintf ", 0\n"
         if (counter == 1)
         {
-            fprintf(outputFile, ", 0\n");
+            fprintf(outputFileRaw, ", 0\n");
+            fprintf(outputFileConverted, ", 0\n");
         }
         long elapsedMicroseconds = 0;
         long timeoutMicros = 0;
@@ -516,14 +563,15 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
         if (currentTime - lastFlushTime >= 120)
         {
             // printf("Flushing...\n");
-            fflush(outputFile);
+            fflush(outputFileRaw);
+            fflush(outputFileConverted);
             lastFlushTime = currentTime;
         }
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &now);
         elapsedMicroseconds = (now.tv_sec - start.tv_sec) * 1000000 +
                               now.tv_nsec / 1000 - start.tv_nsec / 1000;
-        // fprintf(outputFile, "%ld,%ld\n", ((intervalMillis * 1000) - elapsedMicroseconds), (intervalMillis * 1000) - elapsedMicroseconds1);
+        // fprintf(outputFileRaw, "%ld,%ld\n", ((intervalMillis * 1000) - elapsedMicroseconds), (intervalMillis * 1000) - elapsedMicroseconds1);
 
         usleep((intervalMillis * 1000) - elapsedMicroseconds - 20);
         counter++;
