@@ -1,5 +1,5 @@
 // ./command_response /dev/ttyXR7 command_response 2000000 O 8 1 10240000 csv 100 0f 22 100 1e 22 100 12 10 10
-// ./ command_response /dev/ttyXR0 command_response 2000000 O 8 1 10240000 csv 1000 0f 22 500 hex8, int32, float32, uint32, int16, int32, uint16, uint8
+// ./command_response /dev/ttyXR0 command_response 2000000 O 8 1 10240000 csv 1000 0f 22 500 hex8,int32,float32,uint32,int16,int32,uint16,uint8
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,36 +14,19 @@
 #include <sys/select.h>
 #include <stddef.h>
 #include <sys/stat.h>
-#include <arpa/inet.h> // for ntohs, ntohl, and ntohf
 
 #define MAX_FILE_PATH 256
-
-                                                                                                                                                  // Global variables
-                                                                                                                                                  volatile sig_atomic_t stop_flag = 0;
+volatile sig_atomic_t stop_flag = 0;
 size_t currentFileSize = 0;
 int fileCounter = 1;
 
-// data structure to store command, responseBytes and timeoutMicros
 struct CommandPair
 {
     unsigned char command;
     size_t responseBytes;
     useconds_t timeoutMicros;
-    char dataTypes[100]; // Adjust size as needed
+    char dataTypes[1000];
 };
-double ntohd(double value)
-{
-    uint64_t ui = *(uint64_t *)&value;
-    ui = ((ui & 0x00000000000000ffULL) << 56) |
-         ((ui & 0x000000000000ff00ULL) << 40) |
-         ((ui & 0x0000000000ff0000ULL) << 24) |
-         ((ui & 0x00000000ff000000ULL) << 8) |
-         ((ui & 0x000000ff00000000ULL) >> 8) |
-         ((ui & 0x0000ff0000000000ULL) >> 24) |
-         ((ui & 0x00ff000000000000ULL) >> 40) |
-         ((ui & 0xff00000000000000ULL) >> 56);
-    return *(double *)&ui;
-}
 
 // Function prototypes
 off_t get_file_size(FILE *file);
