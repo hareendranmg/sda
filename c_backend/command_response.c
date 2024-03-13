@@ -494,6 +494,8 @@ void executeCommands(int serialPortFD, FILE *outputFileRaw, FILE *outputFileConv
 {
     unsigned long long int counter = 1;
 
+    struct timeval tv;
+
     time_t currentTime = time(NULL);
     time_t lastFlushTime = time(NULL);
 
@@ -511,10 +513,16 @@ void executeCommands(int serialPortFD, FILE *outputFileRaw, FILE *outputFileConv
         {
             tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
                          start.tv_nsec / 1000 - start1.tv_nsec / 1000;
-            // write start time to file
-            fprintf(outputFileRaw, ", %llu", start.tv_sec);
+
+            gettimeofday(&tv, NULL);
+            char timebuffer[80];
+            strftime(timebuffer, sizeof(timebuffer), "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
+
+            fprintf(outputFileRaw, ", %s.", timebuffer);
+            fprintf(outputFileRaw, "%03ld", tv.tv_usec / 1000);
             fprintf(outputFileRaw, ", %llu\n", tx_elapsed);
-            fprintf(outputFileConverted, ", %llu", start.tv_sec);
+            fprintf(outputFileConverted, ", %s.", timebuffer);
+            fprintf(outputFileConverted, "%03ld", tv.tv_usec / 1000);
             fprintf(outputFileConverted, ", %llu\n", tx_elapsed);
         }
 
