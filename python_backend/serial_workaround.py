@@ -18,7 +18,7 @@ def open_serial_port(serial_port_name, baud_rate, parity, data_bits, stop_bits):
             parity=parity,
             bytesize=data_bits,
             stopbits=stop_bits,
-            timeout=1  # Set timeout for read operations (in seconds)
+            timeout=None  # Set timeout for read operations (in seconds)
         )
 
         print(f"Serial port {serial_port_name} opened successfully.")

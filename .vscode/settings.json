@@ -1,6 +1,8 @@
 {
     "files.associations": {
         ".env": "dotenv",
-        "signal.h": "c"
+        "signal.h": "c",
+        "unistd.h": "c",
+        "libserialport.h": "c"
     }
 }
