@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // set_serial_parameters(serialPortFD, baudRate, parity, dataBits, stopBits);
+    set_serial_parameters(serialPortFD, baudRate, parity, dataBits, stopBits);
 
     // Register signal handler for graceful termination
     signal(SIGINT, handle_signal);
@@ -374,6 +374,7 @@ void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair
 void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis)
 {
     unsigned long long int counter = 1;
+    struct timeval tv;
 
     time_t currentTime = time(NULL);
     time_t lastFlushTime = time(NULL);
@@ -386,16 +387,19 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
 
     while (!stop_flag)
     {
-        fprintf(outputFile, "1\n");
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 
         if (counter > 2)
         {
             tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
-                         start.tv_nsec / 1000 - start1.tv_nsec / 1000;
+                         (start.tv_nsec - start1.tv_nsec) / 1000;
+            gettimeofday(&tv, NULL);
+            char timebuffer[80];
+            strftime(timebuffer, sizeof(timebuffer), "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
+            fprintf(outputFile, ", %s.", timebuffer);
+            fprintf(outputFile, "%03ld", tv.tv_usec / 1000);
             fprintf(outputFile, ", %llu\n", tx_elapsed);
         }
-        fprintf(outputFile, "2\n");
 
         currentFileSize = get_file_size(outputFile);
         if (currentFileSize > filesize)
@@ -403,7 +407,6 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             fclose(outputFile);
             outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter);
         }
-        fprintf(outputFile, "3\n");
 
         start1 = start;
         fprintf(outputFile, "%llu", counter);
@@ -411,7 +414,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
         {
             fprintf(outputFile, ", %02X, ", commandPairs[i].command);
             write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
-            usleep(1000);
+            usleep(200);
             readResponse(outputFile, serialPortFD, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
             tcflush(serialPortFD, TCIOFLUSH);
         }
@@ -432,13 +435,15 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
         }
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-        elapsedMicroseconds = (now.tv_sec - start.tv_sec) * 1000000 +
-                              now.tv_nsec / 1000 - start.tv_nsec / 1000;
+        elapsedMicroseconds = ((now.tv_sec - start.tv_sec) * 1000000 ) + ((now.tv_nsec - start.tv_nsec) / 1000);
+        // printf("Elapsed time: %ld\n", elapsedMicroseconds);
         // fprintf(outputFile, "%ld,%ld\n", ((intervalMillis * 1000) - elapsedMicroseconds), (intervalMillis * 1000) - elapsedMicroseconds1);
 
-        usleep((intervalMillis * 1000) - elapsedMicroseconds - 20);
+        // usleep(intervalMillis * 1000);
+        if (elapsedMicroseconds < intervalMillis * 1000)
+        {
+            usleep((intervalMillis * 1000) - elapsedMicroseconds);
+        }
         counter++;
-        fprintf(outputFile, "completed\n");
     }
-    fprintf(outputFile, "exited\n");
 }
