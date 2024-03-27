@@ -1,15 +1,16 @@
 {
     "configurations": [
         {
+            "configurationProvider": "ms-vscode.cpptools",
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang",
-            "cStandard": "c17",
-            "cppStandard": "c++14",
-            "intelliSenseMode": "linux-clang-arm64"
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-arm64"
         }
     ],
     "version": 4
