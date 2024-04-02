@@ -223,7 +223,7 @@ int open_serial_port(const char *serialPortName)
 FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter)
 {
     char newFileName[MAX_FILE_PATH];
-    snprintf(newFileName, sizeof(newFileName), "%s_%d.%s", outputFileName, counter, fileExtension);
+    snprintf(newFileName, sizeof(newFileName), "%s_raw_%d.%s", outputFileName, counter, fileExtension);
     FILE *outputFile = fopen(newFileName, "wb");
 
     if (!outputFile)
