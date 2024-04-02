@@ -19,7 +19,6 @@
 
 // Global variables
 volatile sig_atomic_t stop_flag = 0;
-size_t currentFileSize = 0;
 int fileCounter = 1;
 
 // data structure to store command, responseBytes and timeoutMicros
@@ -248,16 +247,23 @@ void writeHeaders(FILE *outputFile, size_t numCommands)
 
 void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, double intervalMillis)
 {
-    unsigned long long int counter = 1;
-    struct timeval tv;
+    int bytesRead = 0;
+    int i = 0;
+    int j = 0;
 
-    struct timespec start, now, start1;
+    unsigned long long int counter = 1;
     unsigned long long int tx_elapsed = 0;
+    long elapsedMicroseconds = 0;
+
+    struct timeval tv;
+    struct timespec start, now, start1;
+
     double intervelUs = intervalMillis * 1000; // interval in microseconds with adjustment
     unsigned char responseBuffer[RESPONSE_BUFFER_SIZE];
+    char timebuffer[80];
 
     // header bytes count
-    currentFileSize = 0;
+    size_t currentFileSize = 0;
 
     while (!stop_flag)
     {
@@ -268,7 +274,6 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             tx_elapsed = (start.tv_sec - start1.tv_sec) * 1000000 +
                          (start.tv_nsec - start1.tv_nsec) / 1000;
             gettimeofday(&tv, NULL);
-            char timebuffer[80];
             strftime(timebuffer, sizeof(timebuffer), "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
             fprintf(outputFile, ", %s.", timebuffer);
             fprintf(outputFile, "%03d.%03d", tv.tv_usec / 1000, tv.tv_usec % 1000);
@@ -279,17 +284,17 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
 
         fprintf(outputFile, "%llu", counter);
 
-        for (size_t i = 0; i < numCommands; ++i)
+        for (i = 0; i < numCommands; ++i)
         {
             fprintf(outputFile, ", %02X, ", commandPairs[i].command);
             write(serialPortFD, &commandPairs[i].command, sizeof(commandPairs[i].command));
             usleep(commandPairs[i].timeoutMicros);
-            int bytesRead = read(serialPortFD, responseBuffer, commandPairs[i].responseBytes);
+            bytesRead = read(serialPortFD, responseBuffer, commandPairs[i].responseBytes);
             if (bytesRead > 0)
             {
-                for (int i = 0; i < bytesRead; ++i)
+                for (j = 0; j < bytesRead; ++j)
                 {
-                    fprintf(outputFile, "%02X", responseBuffer[i]);
+                    fprintf(outputFile, "%02X", responseBuffer[j]);
                 }
             }
             else
@@ -312,7 +317,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             fprintf(outputFile, ", 0\n");
         }
 
-        long elapsedMicroseconds = 0;
+        elapsedMicroseconds = 0;
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &now);
         elapsedMicroseconds = ((now.tv_sec - start.tv_sec) * 1000000 ) + ((now.tv_nsec - start.tv_nsec) / 1000);
