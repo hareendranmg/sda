@@ -6,15 +6,14 @@
 #include <termios.h>
 #include <unistd.h>
 #include <signal.h>
-// #include <sys/time.h>
 #include <time.h>
 #include <sched.h>
 #include <inttypes.h>
 #include <sys/select.h>
 #include <stddef.h>
 #include <sys/stat.h>
-// include epoll header
 #include <sys/epoll.h>
+#include <sys/resource.h>
 
 #define MAX_FILE_PATH 256
 
@@ -44,6 +43,22 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
 
 int main(int argc, char *argv[])
 {
+    if (setpriority(PRIO_PROCESS, 0, -20) == -1)
+    {
+        perror("setpriority");
+        exit(EXIT_FAILURE);
+    }
+
+    struct sched_param param;
+    param.sched_priority = sched_get_priority_max(SCHED_RR);
+
+    // Attempt to set real-time scheduling policy
+    if (sched_setscheduler(0, SCHED_RR, &param) == -1)
+    {
+        perror("sched_setscheduler");
+        exit(EXIT_FAILURE);
+    }
+
     printf("argc: %d\n", argc);
     for (int i = 0; i < argc; i++)
     {
@@ -243,127 +258,6 @@ void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size)
     snprintf(output, size, "%02d:%02d:%02d.%03ld.%03ld", tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, ms, us);
 }
 
-// int readResponse(FILE *outputFile, int serialPortFD, size_t responseBytes, double timeoutMicros)
-// {
-//     struct timeval tv;
-//     gettimeofday(&tv, NULL);
-//     char timebuffer[80];
-//     strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
-//     printf("%s  %03d.%03d - ", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
-
-//     int flags = fcntl(serialPortFD, F_GETFL, 0);
-//     fcntl(serialPortFD, F_SETFL, flags | O_NONBLOCK);
-
-//     unsigned char *buffer = (unsigned char *)malloc(responseBytes);
-
-//     fd_set readSet;
-//     FD_ZERO(&readSet);
-//     FD_SET(serialPortFD, &readSet);
-
-//     struct timeval timeout;
-//     timeout.tv_sec = 0;
-//     timeout.tv_usec = 1000;
-
-//     int selectResult = select(serialPortFD + 1, &readSet, NULL, NULL, &timeout);
-
-//     if (selectResult > 0)
-//     {
-//         int bytesRead = read(serialPortFD, buffer, responseBytes);
-//         if (bytesRead > 0)
-//         {
-//             for (int i = 0; i < bytesRead; ++i)
-//             {
-//                 fprintf(outputFile, "%02X", buffer[i]);
-//             }
-//         }
-//         free(buffer);
-//         gettimeofday(&tv, NULL);
-//         strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
-//         printf("%s  %03d.%03d d\n", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
-
-//         return bytesRead;
-//     }
-//     else
-//     {
-//         fprintf(outputFile, "timeout");
-//         free(buffer);
-//         gettimeofday(&tv, NULL);
-//         strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
-//         printf("%s  %03d.%03d t\n", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
-
-//         return -3;
-//     }
-// }
-
-int readResponse(FILE *outputFile, int serialPortFD, size_t responseBytes, double timeoutMicros)
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    char timebuffer[80];
-    strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
-    printf("%s  %03d.%03d - ", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
-
-    unsigned char *buffer = (unsigned char *)malloc(responseBytes);
-
-    int epfd = epoll_create1(0);
-    if (epfd == -1)
-    {
-        perror("epoll_create1");
-        free(buffer);
-        return -1;
-    }
-
-    struct epoll_event event;
-    event.events = EPOLLIN;
-    event.data.fd = serialPortFD;
-
-    if (epoll_ctl(epfd, EPOLL_CTL_ADD, serialPortFD, &event) == -1)
-    {
-        perror("epoll_ctl");
-        close(epfd);
-        free(buffer);
-        return -1;
-    }
-
-    struct epoll_event events[1];
-    int numEvents = epoll_wait(epfd, events, 1, (int)timeoutMicros);
-
-    if (numEvents > 0)
-    {
-        int bytesRead = read(serialPortFD, buffer, responseBytes);
-        if (bytesRead > 0)
-        {
-            for (int i = 0; i < bytesRead; ++i)
-            {
-                fprintf(outputFile, "%02X", buffer[i]);
-            }
-        }
-        free(buffer);
-        gettimeofday(&tv, NULL);
-        // strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
-        printf("%03d.%03d d\n", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
-
-        return bytesRead;
-    }
-    else if (numEvents == 0)
-    {
-        fprintf(outputFile, "timeout");
-        free(buffer);
-        gettimeofday(&tv, NULL);
-        // strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
-        printf("%03d.%03d t\n", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
-
-        return -3;
-    }
-    else
-    {
-        perror("epoll_wait");
-        close(epfd);
-        free(buffer);
-        return -1;
-    }
-}
-
 void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs)
 {
     fprintf(outputFile, "slno");
@@ -379,6 +273,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
     unsigned long long int counter = 1;
     struct timeval tv;
 
+    //TODO: Remove flush checking variables and related code
     time_t currentTime = time(NULL);
     time_t lastFlushTime = time(NULL);
 
@@ -406,57 +301,53 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             fprintf(outputFile, "%03d.%03d", tv.tv_usec / 1000, tv.tv_usec % 1000);
             fprintf(outputFile, ", %llu\n", tx_elapsed);
         }
+
         start1 = start;
+
         fprintf(outputFile, "%llu", counter);
+
         for (size_t i = 0; i < numCommands; ++i)
         {
             fprintf(outputFile, ", %02X, ", commandPairs[i].command);
             write(serialPortFD, &commandPairs[i].command, sizeof(commandPairs[i].command));
-            // usleep(commandPairs[i].timeoutMicros);
-            // unsigned char *buffer = (unsigned char *)malloc(commandPairs[i].responseBytes);
-            // int bytesRead = read(serialPortFD, buffer, commandPairs[i].responseBytes);
-            // if (bytesRead > 0)
-            // {
-            //     for (int i = 0; i < bytesRead; ++i)
-            //     {
-            //         fprintf(outputFile, "%02X", buffer[i]);
-            //     }
-            // } else {
-            //     fprintf(outputFile, "timeout");
-            // }
-            // free(buffer);
-            // // usleep(200);
-            readResponse(outputFile, serialPortFD, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
+            unsigned char *buffer = malloc(commandPairs[i].responseBytes);
+            usleep(commandPairs[i].timeoutMicros);
+            int bytesRead = read(serialPortFD, buffer, commandPairs[i].responseBytes);
+            if (bytesRead > 0)
+            {
+                for (int i = 0; i < bytesRead; ++i)
+                {
+                    fprintf(outputFile, "%02X", buffer[i]);
+                }
+            } else {
+                fprintf(outputFile, "timeout");
+            }
             tcflush(serialPortFD, TCIOFLUSH);
+            free(buffer);
         }
+
         currentFileSize = get_file_size(outputFile);
         if (currentFileSize > filesize)
         {
             fclose(outputFile);
             outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter, commandPairs);
         }
-        // fprintf ", 0\n"
+
         if (counter == 1)
         {
             fprintf(outputFile, ", 0\n");
         }
-        long elapsedMicroseconds = 0;
 
-        currentTime = time(NULL);
-        if (currentTime - lastFlushTime >= 120)
-        {
-            // printf("Flushing...\n");
-            fflush(outputFile);
-            lastFlushTime = currentTime;
-        }
+        long elapsedMicroseconds = 0;
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &now);
         elapsedMicroseconds = ((now.tv_sec - start.tv_sec) * 1000000 ) + ((now.tv_nsec - start.tv_nsec) / 1000);
 
         if (elapsedMicroseconds < intervelUs)
         {
-            usleep(intervelUs - elapsedMicroseconds);
+            usleep(intervelUs - elapsedMicroseconds - 20);
         }
+
         counter++;
     }
 }
