@@ -240,9 +240,9 @@ void writeHeaders(FILE *outputFile, size_t numCommands)
     fprintf(outputFile, "slno");
     for (size_t i = 0; i < numCommands; ++i)
     {
-        fprintf(outputFile, ", command%d, response%d", i + 1, i + 1);
+        fprintf(outputFile, ", command%d, raw_response%d", i + 1, i + 1);
     }
-    fprintf(outputFile, ", time_elapsed\n");
+    fprintf(outputFile, ", tx_time, time_elapsed\n");
 }
 
 void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, double intervalMillis)
