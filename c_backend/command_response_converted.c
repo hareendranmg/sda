@@ -9,12 +9,14 @@
 #include <time.h>
 #include <sched.h>
 #include <inttypes.h>
+#include <sys/select.h>
 #include <stddef.h>
 #include <sys/stat.h>
 #include <sys/epoll.h>
 #include <sys/resource.h>
 
 #define MAX_FILE_PATH 256
+#define MAX_DATA_TYPES 1000
 
 // Global variables
 volatile sig_atomic_t stop_flag = 0;
@@ -42,7 +44,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
 
 int main(int argc, char *argv[])
 {
-    if (setpriority(PRIO_PROCESS, 0, -99) == -1)
+    if (setpriority(PRIO_PROCESS, 0, -20) == -1)
     {
         perror("setpriority");
         exit(EXIT_FAILURE);
@@ -226,7 +228,6 @@ int open_serial_port(const char *serialPortName)
     if (serialPortFD == -1)
     {
         perror("Error opening serial port");
-        exit(EXIT_FAILURE);
     }
     return serialPortFD;
 }
@@ -273,10 +274,15 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
     unsigned long long int counter = 1;
     struct timeval tv;
 
+    //TODO: Remove flush checking variables and related code
+    time_t currentTime = time(NULL);
+    time_t lastFlushTime = time(NULL);
+
     struct timespec start, now, start1;
     unsigned long long int tx_elapsed = 0;
     double intervelUs = intervalMillis * 1000; // interval in microseconds with adjustment
-    unsigned char responseBuffer[128];
+    printf("IntervalMs: %f\n", intervalMillis);
+    printf("IntervalUs: %f\n", intervelUs);
 
     // header bytes count
     currentFileSize = 0;
@@ -305,21 +311,20 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
         {
             fprintf(outputFile, ", %02X, ", commandPairs[i].command);
             write(serialPortFD, &commandPairs[i].command, sizeof(commandPairs[i].command));
+            unsigned char *buffer = malloc(commandPairs[i].responseBytes);
             usleep(commandPairs[i].timeoutMicros);
-            int bytesRead = read(serialPortFD, responseBuffer, commandPairs[i].responseBytes);
+            int bytesRead = read(serialPortFD, buffer, commandPairs[i].responseBytes);
             if (bytesRead > 0)
             {
                 for (int i = 0; i < bytesRead; ++i)
                 {
-                    fprintf(outputFile, "%02X", responseBuffer[i]);
+                    fprintf(outputFile, "%02X", buffer[i]);
                 }
+            } else {
+                fprintf(outputFile, "timeout");
             }
-            else
-            {
-                fprintf(outputFile, "timeout", bytesRead);
-            }
-
             tcflush(serialPortFD, TCIOFLUSH);
+            free(buffer);
         }
 
         currentFileSize = get_file_size(outputFile);
