@@ -354,13 +354,13 @@ unsigned int share_irqs = SERIALEXAR_SHARE_IRQS;
  * Debugging.
  */
 #if 0
-#define DEBUG_AUTOCONF(fmt...)	printk(fmt)
+#define DEBUG_AUTOCONF(fmt...)	// printk(fmt)
 #else
 #define DEBUG_AUTOCONF(fmt...)	do { } while (0)
 #endif
 
 #if DEBUG
-#define DEBUG_INTR(fmt...)	//printk(fmt)
+#define DEBUG_INTR(fmt...)	//// printk(fmt)
 #else
 #define DEBUG_INTR(fmt...)	do { } while (0)
 #endif
@@ -471,7 +471,7 @@ pci_default_setup(struct serial_private *priv,
 
 	bar = FL_GET_BASE(board->flags);
 	offset += idx * board->uart_offset;
-	//printk(KERN_INFO "Exar PCIe device 0x%x\n", priv->dev->device);
+	//// printk(KERN_INFO "Exar PCIe device 0x%x\n", priv->dev->device);
 	if((priv->dev->device == 0x4354 || priv->dev->device == 0x8354) && (idx >= 4))
 	{
 	    offset += 0x1000; // the ports on expansion device for 0x(4/8)354 sit at bar0+0x2000 offset.
@@ -631,7 +631,7 @@ static void serialxr_stop_tx(struct uart_port *port)
 		up->ier &= ~UART_IER_THRI;
 		lcr = serial_in(up, UART_LCR);
 		if (lcr & 0x80) {
-			printk(KERN_INFO "channelnum %d: serialxr stop tx - LCR = 0x%x", up->channelnum, lcr);
+			// printk(KERN_INFO "channelnum %d: serialxr stop tx - LCR = 0x%x", up->channelnum, lcr);
 			serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 		}
 		serial_out(up, UART_IER, up->ier);
@@ -647,7 +647,7 @@ static void serialxr_start_tx(struct uart_port *port)
 		up->ier |= UART_IER_THRI;
 		lcr = serial_in(up, UART_LCR);
 		if (lcr & 0x80) {
-			printk(KERN_INFO"channelnum %d: serialxr start tx - LCR = 0x%x", up->channelnum, lcr);
+			// printk(KERN_INFO"channelnum %d: serialxr start tx - LCR = 0x%x", up->channelnum, lcr);
 			serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 		}
 		serial_out(up, UART_IER, up->ier);
@@ -662,7 +662,7 @@ static void serialxr_stop_rx(struct uart_port *port)
 	up->ier &= ~UART_IER_RLSI;
 	lcr = serial_in(up, UART_LCR);
 	if (lcr & 0x80) {
-		printk(KERN_INFO"channelnum %d: serialxr stop rx - LCR = 0x%x", up->channelnum, lcr);
+		// printk(KERN_INFO"channelnum %d: serialxr stop rx - LCR = 0x%x", up->channelnum, lcr);
 		serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 	}
 	up->port.read_status_mask &= ~UART_LSR_DR;
@@ -677,7 +677,7 @@ static void serialxr_enable_ms(struct uart_port *port)
 	up->ier |= UART_IER_MSI;
 	lcr = serial_in(up, UART_LCR);
 	if (lcr & 0x80) {
-		printk(KERN_INFO"channelnum %d: serialxr enable ms - LCR = 0x%x", up->channelnum, lcr);
+		// printk(KERN_INFO"channelnum %d: serialxr enable ms - LCR = 0x%x", up->channelnum, lcr);
 		serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 	}
 	serial_out(up, UART_IER, up->ier);
@@ -711,7 +711,7 @@ receive_chars(struct uart_xr_port *up, unsigned int *status)
 		lsr &= up->port.read_status_mask;
         if (lsr & UART_LSR_OE)
 		{
-			printk("OverRun Happen....");
+			// printk("OverRun Happen....");
 		}
 		if (lsr & UART_LSR_BI)
 		{
@@ -729,7 +729,7 @@ receive_chars(struct uart_xr_port *up, unsigned int *status)
 					{
 						lcr = serial_in(up, UART_LCR);
 						if (lcr & 0x80) {
-							printk(KERN_INFO"channelnum %d: receive chars (multidrop mode) - LCR = 0x%x", up->channelnum, lcr);
+							// printk(KERN_INFO"channelnum %d: receive chars (multidrop mode) - LCR = 0x%x", up->channelnum, lcr);
 							serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 						}
 					  ch[i]= serial_in(up, XR_17v35x_UART_RHR);
@@ -783,7 +783,7 @@ receive_chars(struct uart_xr_port *up, unsigned int *status)
 			}
 			if(up->multidrop_mode == 0)
 			{
-			    printk("handling port<%d> Parity error....(%d)\n",port_index,up->multidrop_mode);
+			    // printk("handling port<%d> Parity error....(%d)\n",port_index,up->multidrop_mode);
 			}
 
 		}
@@ -801,7 +801,7 @@ receive_chars(struct uart_xr_port *up, unsigned int *status)
     {
 		lcr = serial_in(up, UART_LCR);
 		if (lcr & 0x80) {
-			printk(KERN_INFO"channelnum %d: receive chars - LCR = 0x%x", up->channelnum, lcr);
+			// printk(KERN_INFO"channelnum %d: receive chars - LCR = 0x%x", up->channelnum, lcr);
 			serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 		}
       ch[i]= serial_in(up, XR_17v35x_UART_RHR);
@@ -871,7 +871,7 @@ static void transmit_chars(struct uart_xr_port *up)
 			{
 				lcr = serial_in(up, UART_LCR);
 				if (lcr & 0x80) {
-					printk(KERN_INFO"channelnum %d: transmit_chars1 - LCR = 0x%x", up->channelnum, lcr);
+					// printk(KERN_INFO"channelnum %d: transmit_chars1 - LCR = 0x%x", up->channelnum, lcr);
 					serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 				}
 			  serial_out(up, XR_17v35x_UART_THR, ch[i]);
@@ -889,7 +889,7 @@ static void transmit_chars(struct uart_xr_port *up)
 			{
 				lcr = serial_in(up, UART_LCR);
 				if (lcr & 0x80) {
-					printk(KERN_INFO"channelnum %d: transmit_chars2 - LCR = 0x%x", up->channelnum, lcr);
+					// printk(KERN_INFO"channelnum %d: transmit_chars2 - LCR = 0x%x", up->channelnum, lcr);
 					serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 				}
 			  serial_out(up, XR_17v35x_UART_THR, ch[i]);
@@ -990,7 +990,7 @@ static irqreturn_t serialxr_interrupt(int irq, void *dev_id)
 
 		lcr = serial_in(up, UART_LCR);  // store value of LCR
 		if (lcr & 0x80) {
-			printk(KERN_INFO"channelnum %d: serialxr interrupt - LCR = 0x%x", up->channelnum, lcr);
+			// printk(KERN_INFO"channelnum %d: serialxr interrupt - LCR = 0x%x", up->channelnum, lcr);
 			serial_out(up, UART_LCR, lcr & 0x7F); // ensure LCR bit-7=0 before reading UART_IIR
 		}
 		iir = serial_in(up, UART_IIR);
@@ -1009,8 +1009,8 @@ static irqreturn_t serialxr_interrupt(int irq, void *dev_id)
                  serial_in(up,0x80);
 		if (l == i->head && pass_counter++ > 256) {
 			/* If we hit this, we're dead. */
-			printk(KERN_ERR "serialxr: too much work for "
-				"irq%d\n", irq);
+			// printk(KERN_ERR "serialxr: too much work for "
+				// "irq%d\n", irq);
 			break;
 		}
 	} while (l != end);
@@ -1220,7 +1220,7 @@ static void serialxr_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	efr = efr & 0xEF;	// clear access to shaded registers so that write to MCR does not change from using DTR to RTS for RS-485 control
 #if   USE_DTR_RS485
        mcr |= 0x04;
-	printk(KERN_INFO "serialxr_set_mctrl mcr=%02x\n",mcr);
+	// printk(KERN_INFO "serialxr_set_mctrl mcr=%02x\n",mcr);
 #endif
 	serial_out(up, UART_EFR, efr);
 	serial_out(up, UART_MCR, mcr);
@@ -1348,7 +1348,7 @@ if(port->irq) {
 	up->ier = UART_IER_RLSI | UART_IER_RDI;
 	lcr = serial_in(up, UART_LCR);
 	if (lcr & 0x80) {
-		printk(KERN_INFO"channelnum %d: serialxr startup - LCR = 0x%x", up->channelnum, lcr);
+		// printk(KERN_INFO"channelnum %d: serialxr startup - LCR = 0x%x", up->channelnum, lcr);
 		serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 	}
 	serial_out(up, UART_IER, up->ier);
@@ -1377,8 +1377,8 @@ static void serialxr_shutdown(struct uart_port *port)
 	{
 	   i++;
 	   lsr = serial_in(up, UART_LSR);
-	   if((lsr&0x60) != 0x60)
-	      printk("serialxr_shutdown wait TXFIFO Empty %02x",lsr);
+	   if((lsr&0x60) != 0x60);
+	      // printk("serialxr_shutdown wait TXFIFO Empty %02x",lsr);
 	   else
 	   	  break;
 	   msleep(1);
@@ -1392,7 +1392,7 @@ static void serialxr_shutdown(struct uart_port *port)
 	up->ier = 0;
 	lcr = serial_in(up, UART_LCR);
 	if (lcr & 0x80) {
-		printk(KERN_INFO"channelnum %d: serialxr_shutdown1 - LCR = 0x%x",	up->channelnum, lcr);
+		// printk(KERN_INFO"channelnum %d: serialxr_shutdown1 - LCR = 0x%x",	up->channelnum, lcr);
 		serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 	}
 	serial_out(up, UART_IER, 0);
@@ -1413,7 +1413,7 @@ static void serialxr_shutdown(struct uart_port *port)
 				  UART_FCR_CLEAR_XMIT);
 	lcr = serial_in(up, UART_LCR);
 	if (lcr & 0x80) {
-		printk(KERN_INFO"channelnum %d: serialxr_shutdown2 - LCR = 0x%x",	up->channelnum, lcr);
+		// printk(KERN_INFO"channelnum %d: serialxr_shutdown2 - LCR = 0x%x",	up->channelnum, lcr);
 		serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 	}
 	serial_out(up, UART_FCR, 0);
@@ -1475,7 +1475,7 @@ serialxr_set_special_baudrate(struct uart_port *port,unsigned int special_baudra
 	unsigned char lcr_bak;
 	unsigned int reg_read;
 	int port_index = up->channelnum;
-	printk(KERN_INFO "Enter in serialxr_set non-standard baudrate:%d channelnum:%d\n",special_baudrate,up->channelnum);
+	// printk(KERN_INFO "Enter in serialxr_set non-standard baudrate:%d channelnum:%d\n",special_baudrate,up->channelnum);
 
 	baud = special_baudrate/*uart_get_baud_rate(port, termios, old, 0, port->uartclk/4)*/;
     lcr_bak = serial_in(up, UART_LCR);
@@ -1508,21 +1508,21 @@ serialxr_set_special_baudrate(struct uart_port *port,unsigned int special_baudra
 	      val_4xmode &=~(1 << port_index);
 	      val_8xmode &=~(1 << port_index);
 	      quot_coeff = 16;
-	      printk(KERN_INFO "Using the 16x Mode\n");
+	      // printk(KERN_INFO "Using the 16x Mode\n");
 	}
 	else if((baud >= 12500000/16)&&(baud < 12500000/4))
 	{//using the 8x mode
 	      val_4xmode &=~(1 << port_index);
 		  val_8xmode |=(1 << port_index);
 		  quot_coeff = 8;
-		  printk(KERN_INFO "Using the 8x Mode\n");
+		  // printk(KERN_INFO "Using the 8x Mode\n");
 	}
 	else
 	{//using the 4x mode
 	   val_4xmode |=(1 << port_index);
 	   val_8xmode &=~(1 << port_index);
 	   quot_coeff = 4;
-	   printk(KERN_INFO "Using the 4x Mode\n");
+	   // printk(KERN_INFO "Using the 4x Mode\n");
 	}
 
 	serial_out(up, XR_17V35X_8XMODE, val_8xmode);
@@ -1625,7 +1625,7 @@ if (!(termios->c_cflag & PARODD))
 	 */
 baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk/4);
 
-printk(KERN_INFO "\nserialxr_set_termios: Port Index:%d c_ispeed:%d c_ospeed:%d baud=%d",port_index,termios->c_ispeed,termios->c_ospeed,baud);
+// printk(KERN_INFO "\nserialxr_set_termios: Port Index:%d c_ispeed:%d c_ospeed:%d baud=%d",port_index,termios->c_ispeed,termios->c_ospeed,baud);
 
 val_4xmode = serial_in(up, XR_17V35X_4XMODE);
 val_8xmode = serial_in(up, XR_17V35X_8XMODE);
@@ -1680,21 +1680,21 @@ if(baud < 12500000/16)
       val_4xmode &=~(1 << port_index);
       val_8xmode &=~(1 << port_index);
       quot_coeff = 16;
-      printk(KERN_INFO "Using the 16x Mode\n");
+      // printk(KERN_INFO "Using the 16x Mode\n");
 }
 else if((baud >= 12500000/16)&&(baud < 12500000/4))
 {//using the 8x mode
       val_4xmode &=~(1 << port_index);
 	  val_8xmode |=(1 << port_index);
 	  quot_coeff = 8;
-	  printk(KERN_INFO "Using the 8x Mode\n");
+	  // printk(KERN_INFO "Using the 8x Mode\n");
 }
 else
 {//using the 4x mode
    val_4xmode |=(1 << port_index);
    val_8xmode &=~(1 << port_index);
    quot_coeff = 4;
-   printk(KERN_INFO "Using the 4x Mode\n");
+   // printk(KERN_INFO "Using the 4x Mode\n");
 }
 serial_out(up, XR_17V35X_8XMODE, val_8xmode);
 serial_out(up, XR_17V35X_4XMODE, val_4xmode);
@@ -1776,7 +1776,7 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 
 	lcr = serial_in(up, UART_LCR);
 	if (lcr & 0x80) {
-		printk(KERN_INFO"channelnum %d: serialxr_set_termios1 - LCR = 0x%x",	up->channelnum, lcr);
+		// printk(KERN_INFO"channelnum %d: serialxr_set_termios1 - LCR = 0x%x",	up->channelnum, lcr);
 		serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 	}
 	serial_out(up, UART_IER, up->ier);
@@ -1785,12 +1785,12 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 	if(termios->c_cflag & CRTSCTS)
 	{
 	    serial_out(up, XR_17V35X_EXTENDED_EFR, reg_read|0xC0);
-	    printk(KERN_INFO "Hardware Flow Control Enabled");
+	    // printk(KERN_INFO "Hardware Flow Control Enabled");
 	}
 	 else
 	 {
 	       serial_out(up, XR_17V35X_EXTENDED_EFR, reg_read & 0x3F);
-	       printk(KERN_INFO "Hardware Flow Control Disabled\n");
+	       // printk(KERN_INFO "Hardware Flow Control Disabled\n");
 	 }
 
 	/*
@@ -1803,12 +1803,12 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 	if(((termios->c_iflag) & IXOFF)&&((termios->c_iflag) & IXON))
 	{
 		serial_out(up, XR_17V35X_EXTENDED_EFR, (reg_read) | 0x0A );
-		printk(KERN_INFO "Software Flow Control Enabled\n");
+		// printk(KERN_INFO "Software Flow Control Enabled\n");
 	}
 	else
 	{
 		serial_out(up, XR_17V35X_EXTENDED_EFR, (reg_read) & 0xF0 );
-		printk(KERN_INFO "No Software Flow Control\n");
+		// printk(KERN_INFO "No Software Flow Control\n");
 	}
 
 	reg_read=serial_in(up, XR_17V35X_EXTENDED_EFR);
@@ -1819,7 +1819,7 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 		reg_read=serial_in(up, UART_MCR);
 		serial_out(up, UART_MCR, (reg_read) | 0x20 );
 		serial_out(up, XR_17V35X_EXTENDED_EFR, (reg_read) & 0xEF );
-		printk(KERN_INFO "AUTO XANY Enabled\n");
+		// printk(KERN_INFO "AUTO XANY Enabled\n");
 	}
 	else
 	{
@@ -1828,7 +1828,7 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 		serial_out(up, UART_MCR, (reg_read) & 0xDF );
 		reg_read=serial_in(up,XR_17V35X_EXTENDED_EFR);
 		serial_out(up, XR_17V35X_EXTENDED_EFR, (reg_read) & 0xEF );
-		printk(KERN_INFO "AUTO XANY NOT Enabled\n");
+		// printk(KERN_INFO "AUTO XANY NOT Enabled\n");
 	}
 
 //---------------------------------------------------------------------------//
@@ -1854,7 +1854,7 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 
 	lcr = serial_in(up, UART_LCR);
 	if (lcr & 0x80) {
-		printk(KERN_INFO"channelnum %d: serialxr_set_termios2 - LCR = 0x%x", up->channelnum, lcr);
+		// printk(KERN_INFO"channelnum %d: serialxr_set_termios2 - LCR = 0x%x", up->channelnum, lcr);
 		serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 	}
 	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO);/* set fcr */
@@ -1875,7 +1875,7 @@ DEBUG_INTR(KERN_INFO "XR_17V35X_8XMODE:%d \n",serial_in(up, XR_17V35X_8XMODE));
 #if ENABLE_INTERNAL_LOOPBACK
 	reg_read=serial_in(up, UART_MCR);
 	serial_out(up, UART_MCR, (reg_read) | 0x10);
-	printk(KERN_INFO "Enabling Internal Loopback\n");
+	// printk(KERN_INFO "Enabling Internal Loopback\n");
 #endif
 	spin_unlock_irqrestore(&up->port.lock, flags);
 }
@@ -2006,7 +2006,7 @@ serialxr_ioctl(struct uart_port *port, unsigned int cmd, unsigned long arg)
 			efr = serial_in(up, XR_17V35X_EXTENDED_EFR);
 			efr |=0x20;
 			serial_out(up, XR_17V35X_EXTENDED_EFR, efr);
-			//printk(KERN_INFO "UART_EFR=0x%02x\n",serial_in(up, XR_17V35X_EXTENDED_EFR));
+			//// printk(KERN_INFO "UART_EFR=0x%02x\n",serial_in(up, XR_17V35X_EXTENDED_EFR));
 
 			up->multidrop_mode = 2;//for enable multidrop auto mode
 
@@ -2071,7 +2071,7 @@ serialxr_pm(struct uart_port *port, unsigned int state,
 		serial_out(up, XR_17V35X_EXTENDED_EFR, UART_EFR_ECB);
 		lcr = serial_in(up, UART_LCR);
 		if (lcr & 0x80) {
-			printk(KERN_INFO"channelnum %d: serialxr_pm sleep - LCR = 0x%x", up->channelnum, lcr);
+			// printk(KERN_INFO"channelnum %d: serialxr_pm sleep - LCR = 0x%x", up->channelnum, lcr);
 			serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 		}
 		serial_out(up, UART_IER, UART_IERX_SLEEP);
@@ -2081,7 +2081,7 @@ serialxr_pm(struct uart_port *port, unsigned int state,
 		serial_out(up, XR_17V35X_EXTENDED_EFR, UART_EFR_ECB);
 		lcr = serial_in(up, UART_LCR);
 		if (lcr & 0x80) {
-			printk(KERN_INFO"channelnum %d: serialxr_pm wake - LCR = 0x%x", up->channelnum, lcr);
+			// printk(KERN_INFO"channelnum %d: serialxr_pm wake - LCR = 0x%x", up->channelnum, lcr);
 			serial_out(up, UART_LCR, lcr & 0x7f);	// Set LCR bit-7=0 when accessing RHR/THR/IER/ISR to avoid incorrect register access
 		}
 		serial_out(up, UART_IER, 0);
@@ -2289,8 +2289,8 @@ init_one_xrpciserialcard(struct pci_dev *dev, const struct pci_device_id *ent)
 	int rc, nr_ports, i;
 
 	if (ent->driver_data >= ARRAY_SIZE(xrpciserial_boards)) {
-		printk(KERN_INFO "pci_init_one: invalid driver_data: %ld\n",
-			ent->driver_data);
+		// printk(KERN_INFO "pci_init_one: invalid driver_data: %ld\n",
+			// ent->driver_data);
 		return -EINVAL;
 	}
 
@@ -2370,11 +2370,11 @@ init_one_xrpciserialcard(struct pci_dev *dev, const struct pci_device_id *ent)
 
 		rc = serialxr_register_port(&serial_port, dev->device,i);
 		if (rc < 0) {
-			printk(KERN_WARNING "Couldn't register serial port %s: %d\n", pci_name(dev), i);
+			// printk(KERN_WARNING "Couldn't register serial port %s: %d\n", pci_name(dev), i);
 			break;
 		}
 
-		printk(KERN_WARNING "init_one_xrpciserialcard line:%d\n",serial_port.line);
+		// printk(KERN_WARNING "init_one_xrpciserialcard line:%d\n",serial_port.line);
 		priv->uart_index[i] = serial_port.line;
 		priv->line[i] = rc;
 
@@ -2424,7 +2424,7 @@ void pciserial_remove_ports(struct serial_private *priv)
 
 	for (i = 0; i < priv->nr; i++)
 	{
-	  	printk(KERN_WARNING "pciserial_remove_ports dev:%p port_num:%d\n",priv->dev,priv->uart_index[i]);
+	  	// printk(KERN_WARNING "pciserial_remove_ports dev:%p port_num:%d\n",priv->dev,priv->uart_index[i]);
 		//serialxr_unregister_port(priv->line[i]);
 		serialxr_unregister_port(priv->uart_index[i]);
 
@@ -2513,7 +2513,7 @@ static int __init serialxr_init(void)
 {
 	int ret;
 
-	printk(KERN_INFO "Exar PCIe (XR17V35x) serial driver Revision: 2.6\n");
+	// printk(KERN_INFO "Exar PCIe (XR17V35x) serial driver Revision: 2.6\n");
 
 	ret = uart_register_driver(&xr_uart_driver);
 	if (ret)

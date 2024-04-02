@@ -13,6 +13,8 @@
 #include <sys/select.h>
 #include <stddef.h>
 #include <sys/stat.h>
+// include epoll header
+#include <sys/epoll.h>
 
 #define MAX_FILE_PATH 256
 
@@ -26,7 +28,7 @@ struct CommandPair
 {
     unsigned char command;
     size_t responseBytes;
-    useconds_t timeoutMicros;
+    double timeoutMicros;
 };
 
 // Function prototypes
@@ -36,9 +38,9 @@ void cleanup(int serialPortFD, FILE *outputFile, struct CommandPair *commandPair
 int open_serial_port(const char *serialPortName);
 FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter, struct CommandPair *commandPairs);
 void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size);
-int readResponse(FILE *outputFile, int serialPortFD, size_t responseBytes, useconds_t timeoutMicros);
+int readResponse(FILE *outputFile, int serialPortFD, size_t responseBytes, double timeoutMicros);
 void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs);
-void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis);
+void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, double intervalMillis);
 
 int main(int argc, char *argv[])
 {
@@ -54,7 +56,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    int intervalMillis = atoi(argv[9]);
+    float intervalMillis = atof(argv[9]);
     if (intervalMillis <= 0)
     {
         fprintf(stderr, "Interval must be greater than 0\n");
@@ -84,13 +86,13 @@ int main(int argc, char *argv[])
     {
         commandPairs[i].command = strtol(argv[i * 3 + 10], NULL, 16);
         commandPairs[i].responseBytes = atoi(argv[i * 3 + 11]);
-        commandPairs[i].timeoutMicros = atoi(argv[i * 3 + 12]);
+        commandPairs[i].timeoutMicros = atof(argv[i * 3 + 12]);
     }
 
     // print command pairs
     for (size_t i = 0; i < numCommands; ++i)
     {
-        printf("Command %zu: %02X %zu %u\n", i, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
+        printf("Command %zu: %02X %zu %f\n", i, commandPairs[i].command, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
     }
 
     // Execute the Python script before opening the serial port
@@ -241,36 +243,92 @@ void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size)
     snprintf(output, size, "%02d:%02d:%02d.%03ld.%03ld", tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, ms, us);
 }
 
-int readResponse(FILE *outputFile, int serialPortFD, size_t responseBytes, useconds_t timeoutMicros)
+// int readResponse(FILE *outputFile, int serialPortFD, size_t responseBytes, double timeoutMicros)
+// {
+//     struct timeval tv;
+//     gettimeofday(&tv, NULL);
+//     char timebuffer[80];
+//     strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
+//     printf("%s  %03d.%03d - ", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
+
+//     int flags = fcntl(serialPortFD, F_GETFL, 0);
+//     fcntl(serialPortFD, F_SETFL, flags | O_NONBLOCK);
+
+//     unsigned char *buffer = (unsigned char *)malloc(responseBytes);
+
+//     fd_set readSet;
+//     FD_ZERO(&readSet);
+//     FD_SET(serialPortFD, &readSet);
+
+//     struct timeval timeout;
+//     timeout.tv_sec = 0;
+//     timeout.tv_usec = 1000;
+
+//     int selectResult = select(serialPortFD + 1, &readSet, NULL, NULL, &timeout);
+
+//     if (selectResult > 0)
+//     {
+//         int bytesRead = read(serialPortFD, buffer, responseBytes);
+//         if (bytesRead > 0)
+//         {
+//             for (int i = 0; i < bytesRead; ++i)
+//             {
+//                 fprintf(outputFile, "%02X", buffer[i]);
+//             }
+//         }
+//         free(buffer);
+//         gettimeofday(&tv, NULL);
+//         strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
+//         printf("%s  %03d.%03d d\n", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
+
+//         return bytesRead;
+//     }
+//     else
+//     {
+//         fprintf(outputFile, "timeout");
+//         free(buffer);
+//         gettimeofday(&tv, NULL);
+//         strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
+//         printf("%s  %03d.%03d t\n", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
+
+//         return -3;
+//     }
+// }
+
+int readResponse(FILE *outputFile, int serialPortFD, size_t responseBytes, double timeoutMicros)
 {
-    int flags = fcntl(serialPortFD, F_GETFL, 0);
-    fcntl(serialPortFD, F_SETFL, flags | O_NONBLOCK);
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    char timebuffer[80];
+    strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
+    printf("%s  %03d.%03d - ", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
 
     unsigned char *buffer = (unsigned char *)malloc(responseBytes);
 
-    fd_set readSet;
-    FD_ZERO(&readSet);
-    FD_SET(serialPortFD, &readSet);
-
-    struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = timeoutMicros;
-
-    int selectResult = select(serialPortFD + 1, &readSet, NULL, NULL, &timeout);
-
-    if (selectResult == -1)
+    int epfd = epoll_create1(0);
+    if (epfd == -1)
     {
-        fprintf(outputFile, "error");
+        perror("epoll_create1");
         free(buffer);
+        return -1;
+    }
 
-        return -2;
-    } else if (selectResult == 0)
+    struct epoll_event event;
+    event.events = EPOLLIN;
+    event.data.fd = serialPortFD;
+
+    if (epoll_ctl(epfd, EPOLL_CTL_ADD, serialPortFD, &event) == -1)
     {
-        fprintf(outputFile, "timeout");
+        perror("epoll_ctl");
+        close(epfd);
         free(buffer);
+        return -1;
+    }
 
-        return -3;
-    } else
+    struct epoll_event events[1];
+    int numEvents = epoll_wait(epfd, events, 1, (int)timeoutMicros);
+
+    if (numEvents > 0)
     {
         int bytesRead = read(serialPortFD, buffer, responseBytes);
         if (bytesRead > 0)
@@ -281,8 +339,28 @@ int readResponse(FILE *outputFile, int serialPortFD, size_t responseBytes, useco
             }
         }
         free(buffer);
+        gettimeofday(&tv, NULL);
+        // strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
+        printf("%03d.%03d d\n", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
 
         return bytesRead;
+    }
+    else if (numEvents == 0)
+    {
+        fprintf(outputFile, "timeout");
+        free(buffer);
+        gettimeofday(&tv, NULL);
+        // strftime(timebuffer, sizeof(timebuffer), "%H:%M:%S", localtime(&tv.tv_sec));
+        printf("%03d.%03d t\n", timebuffer, tv.tv_usec / 1000, tv.tv_usec % 1000);
+
+        return -3;
+    }
+    else
+    {
+        perror("epoll_wait");
+        close(epfd);
+        free(buffer);
+        return -1;
     }
 }
 
@@ -296,7 +374,7 @@ void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair
     fprintf(outputFile, ", time_elapsed\n");
 }
 
-void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, int intervalMillis)
+void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, double intervalMillis)
 {
     unsigned long long int counter = 1;
     struct timeval tv;
@@ -306,7 +384,9 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
 
     struct timespec start, now, start1;
     unsigned long long int tx_elapsed = 0;
-    unsigned long long int intervelUs = intervalMillis * 1000; // interval in microseconds with adjustment
+    double intervelUs = intervalMillis * 1000; // interval in microseconds with adjustment
+    printf("IntervalMs: %f\n", intervalMillis);
+    printf("IntervalUs: %f\n", intervelUs);
 
     // header bytes count
     currentFileSize = 0;
@@ -323,26 +403,37 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             char timebuffer[80];
             strftime(timebuffer, sizeof(timebuffer), "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
             fprintf(outputFile, ", %s.", timebuffer);
-            fprintf(outputFile, "%03d.%03d.", tv.tv_usec / 1000, tv.tv_usec % 1000);
+            fprintf(outputFile, "%03d.%03d", tv.tv_usec / 1000, tv.tv_usec % 1000);
             fprintf(outputFile, ", %llu\n", tx_elapsed);
         }
-
-        currentFileSize = get_file_size(outputFile);
-        if (currentFileSize > filesize)
-        {
-            fclose(outputFile);
-            outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter, commandPairs);
-        }
-
         start1 = start;
         fprintf(outputFile, "%llu", counter);
         for (size_t i = 0; i < numCommands; ++i)
         {
             fprintf(outputFile, ", %02X, ", commandPairs[i].command);
-            write(serialPortFD, &(commandPairs[i].command), sizeof(commandPairs[i].command));
-            // usleep(200);
+            write(serialPortFD, &commandPairs[i].command, sizeof(commandPairs[i].command));
+            // usleep(commandPairs[i].timeoutMicros);
+            // unsigned char *buffer = (unsigned char *)malloc(commandPairs[i].responseBytes);
+            // int bytesRead = read(serialPortFD, buffer, commandPairs[i].responseBytes);
+            // if (bytesRead > 0)
+            // {
+            //     for (int i = 0; i < bytesRead; ++i)
+            //     {
+            //         fprintf(outputFile, "%02X", buffer[i]);
+            //     }
+            // } else {
+            //     fprintf(outputFile, "timeout");
+            // }
+            // free(buffer);
+            // // usleep(200);
             readResponse(outputFile, serialPortFD, commandPairs[i].responseBytes, commandPairs[i].timeoutMicros);
             tcflush(serialPortFD, TCIOFLUSH);
+        }
+        currentFileSize = get_file_size(outputFile);
+        if (currentFileSize > filesize)
+        {
+            fclose(outputFile);
+            outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter, commandPairs);
         }
         // fprintf ", 0\n"
         if (counter == 1)
@@ -350,7 +441,6 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             fprintf(outputFile, ", 0\n");
         }
         long elapsedMicroseconds = 0;
-        long timeoutMicros = 0;
 
         currentTime = time(NULL);
         if (currentTime - lastFlushTime >= 120)
