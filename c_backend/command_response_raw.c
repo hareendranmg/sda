@@ -15,6 +15,7 @@
 #include <sys/resource.h>
 
 #define MAX_FILE_PATH 256
+#define RESPONSE_BUFFER_SIZE 128
 
 // Global variables
 volatile sig_atomic_t stop_flag = 0;
@@ -32,12 +33,11 @@ struct CommandPair
 // Function prototypes
 off_t get_file_size(FILE *file);
 void handle_signal(int signum);
-void cleanup(int serialPortFD, FILE *outputFile, struct CommandPair *commandPairs);
+void cleanup(int serialPortFD, FILE *outputFile);
 int open_serial_port(const char *serialPortName);
-FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter, struct CommandPair *commandPairs);
+FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter);
 void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size);
-int readResponse(FILE *outputFile, int serialPortFD, size_t responseBytes, double timeoutMicros);
-void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs);
+void writeHeaders(FILE *outputFile, size_t numCommands);
 void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, double intervalMillis);
 
 int main(int argc, char *argv[])
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 
     size_t numCommands = (argc - 9) / 3;
 
-    struct CommandPair *commandPairs = malloc(numCommands * sizeof(struct CommandPair));
+    struct CommandPair commandPairs[numCommands];
 
     if (commandPairs == NULL)
     {
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
     if (serialPortFD == -1)
     {
         perror("Error opening serial port");
-        cleanup(-1, NULL, commandPairs); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        cleanup(-1, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
         exit(EXIT_FAILURE);
     }
 
@@ -131,31 +131,23 @@ int main(int argc, char *argv[])
 
     printf("Starting...\n");
 
-    struct sched_param sp = {.sched_priority = sched_get_priority_max(SCHED_RR)};
-    if (sched_setscheduler(0, SCHED_RR, &sp) != 0)
-    {
-        perror("Error setting process priority");
-        cleanup(serialPortFD, NULL, commandPairs);
-        exit(EXIT_FAILURE);
-    }
-
-    FILE *outputFile = open_output_file(outputFileName, fileExtension, fileCounter, commandPairs);
+    FILE *outputFile = open_output_file(outputFileName, fileExtension, fileCounter);
 
     if (!outputFile)
     {
         perror("Error opening output file");
-        cleanup(serialPortFD, NULL, commandPairs); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
+        cleanup(serialPortFD, NULL); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
         exit(EXIT_FAILURE);
     }
 
-    writeHeaders(outputFile, numCommands, commandPairs);
+    writeHeaders(outputFile, numCommands);
 
     executeCommands(serialPortFD, outputFile, filesize, outputFileName, fileExtension, numCommands, commandPairs, intervalMillis);
 
     printf("Stopping...\n");
 
     // Cleanup and close resources before exiting
-    cleanup(serialPortFD, outputFile, commandPairs);
+    cleanup(serialPortFD, outputFile);
 
     // Reset signal handlers to default behavior
     signal(SIGINT, SIG_DFL);
@@ -187,34 +179,32 @@ off_t get_file_size(FILE *file)
 
 void handle_signal(int signum)
 {
-    printf("Caught signal %d\n", signum);
     if (signum == SIGINT || signum == SIGTERM)
     {
-        printf("Stopping...\n");
         stop_flag = 1;
-        printf("Stopped\n");
     }
-    printf("Exiting signal handler\n");
 }
 
-void cleanup(int serialPortFD, FILE *outputFile, struct CommandPair *commandPairs)
+void cleanup(int serialPortFD, FILE *outputFile)
 {
     printf("Cleaning up...\n");
 
-    if (commandPairs != NULL)
-    {
-        free(commandPairs);
-    }
-
     if (outputFile)
     {
-        fflush(outputFile);
-        fclose(outputFile);
+        if (fclose(outputFile) == EOF)
+        {
+            perror("Error closing output file");
+            exit(EXIT_FAILURE);
+        }
     }
 
     if (serialPortFD != -1)
     {
-        close(serialPortFD);
+        if (close(serialPortFD) == -1)
+        {
+            perror("Error closing serial port");
+            exit(EXIT_FAILURE);
+        }
     }
 
     printf("Cleaned up\n");
@@ -231,7 +221,7 @@ int open_serial_port(const char *serialPortName)
     return serialPortFD;
 }
 
-FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter, struct CommandPair *commandPairs)
+FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter)
 {
     char newFileName[MAX_FILE_PATH];
     snprintf(newFileName, sizeof(newFileName), "%s_%d.%s", outputFileName, counter, fileExtension);
@@ -240,25 +230,13 @@ FILE *open_output_file(const char *outputFileName, const char *fileExtension, in
     if (!outputFile)
     {
         perror("Error opening output file");
-        cleanup(-1, NULL, commandPairs); // Passing -1 as serialPortFD to avoid closing an invalid file descriptor
         exit(EXIT_FAILURE);
     }
 
     return outputFile;
 }
 
-void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size)
-{
-    long ms = ts->tv_nsec / 1000000;
-    long us = (ts->tv_nsec % 1000000) / 1000;
-
-    struct tm tm_info;
-    localtime_r(&(ts->tv_sec), &tm_info);
-
-    snprintf(output, size, "%02d:%02d:%02d.%03ld.%03ld", tm_info.tm_hour, tm_info.tm_min, tm_info.tm_sec, ms, us);
-}
-
-void writeHeaders(FILE *outputFile, size_t numCommands, const struct CommandPair *commandPairs)
+void writeHeaders(FILE *outputFile, size_t numCommands)
 {
     fprintf(outputFile, "slno");
     for (size_t i = 0; i < numCommands; ++i)
@@ -276,7 +254,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
     struct timespec start, now, start1;
     unsigned long long int tx_elapsed = 0;
     double intervelUs = intervalMillis * 1000; // interval in microseconds with adjustment
-    unsigned char responseBuffer[128];
+    unsigned char responseBuffer[RESPONSE_BUFFER_SIZE];
 
     // header bytes count
     currentFileSize = 0;
@@ -326,7 +304,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
         if (currentFileSize > filesize)
         {
             fclose(outputFile);
-            outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter, commandPairs);
+            outputFile = open_output_file(outputFileName, fileExtension, ++fileCounter);
         }
 
         if (counter == 1)
