@@ -1,4 +1,4 @@
-// ./command_response /dev/ttyXR7 command_response 2000000 O 8 1 10240000 csv 100 0f 22 100 1e 22 100 12 10 10
+// ./command_response_raw /dev/ttyXR0 command_response 1000000 M 8 1 102400 csv 5 4b 24 500 41 24 500 42 20 500
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
