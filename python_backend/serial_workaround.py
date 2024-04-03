@@ -4,7 +4,6 @@ import time
 
 def open_serial_port(serial_port_name, baud_rate, parity, data_bits, stop_bits):
     try:
-
         # print all parameters
         print(f"Serial port name: {serial_port_name}")
         print(f"Baud rate: {baud_rate}")
@@ -18,11 +17,11 @@ def open_serial_port(serial_port_name, baud_rate, parity, data_bits, stop_bits):
             parity=parity,
             bytesize=data_bits,
             stopbits=stop_bits,
-            timeout=None  # Set timeout for read operations (in seconds)
+            timeout=None
         )
 
         print(f"Serial port {serial_port_name} opened successfully.")
-        time.sleep(0.1)  # Hold the port open for 0.1 seconds
+        time.sleep(0.1)
 
     except serial.SerialException as e:
         print(f"Error opening serial port: {e}")
