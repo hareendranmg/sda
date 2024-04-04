@@ -1,4 +1,4 @@
-// ./command_response_raw /dev/ttyXR0 command_response 1000000 M 8 1 102400 csv 5 4b 24 500 41 24 500 42 20 500
+// ./command_response_raw /dev/ttyXR0 command_response 1000000 M 8 1 10240000 csv 5 4b 24 500 41 24 500 42 20 500
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +10,7 @@
 #include <sched.h>
 #include <inttypes.h>
 #include <stddef.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/epoll.h>
 #include <sys/resource.h>
@@ -35,9 +36,8 @@ void handle_signal(int signum);
 void cleanup(int serialPortFD, FILE *outputFile);
 int open_serial_port(const char *serialPortName);
 FILE *open_output_file(const char *outputFileName, const char *fileExtension, int counter);
-void timespec_to_hhmmssmsus(struct timespec *ts, char *output, size_t size);
-void writeHeaders(FILE *outputFile, size_t numCommands);
-void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, double intervalMillis);
+void writeHeaders(FILE *outputFile, int numCommands);
+void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, int numCommands, struct CommandPair *commandPairs, double intervalMillis);
 
 int main(int argc, char *argv[])
 {
@@ -235,17 +235,17 @@ FILE *open_output_file(const char *outputFileName, const char *fileExtension, in
     return outputFile;
 }
 
-void writeHeaders(FILE *outputFile, size_t numCommands)
+void writeHeaders(FILE *outputFile, int numCommands)
 {
     fprintf(outputFile, "slno");
-    for (size_t i = 0; i < numCommands; ++i)
+    for (int i = 0; i < numCommands; ++i)
     {
         fprintf(outputFile, ", command%d, raw_response%d", i + 1, i + 1);
     }
     fprintf(outputFile, ", tx_time, time_elapsed\n");
 }
 
-void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, size_t numCommands, struct CommandPair *commandPairs, double intervalMillis)
+void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const char *outputFileName, const char *fileExtension, int numCommands, struct CommandPair *commandPairs, double intervalMillis)
 {
     int bytesRead = 0;
     int i = 0;
@@ -276,7 +276,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             gettimeofday(&tv, NULL);
             strftime(timebuffer, sizeof(timebuffer), "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));
             fprintf(outputFile, ", %s.", timebuffer);
-            fprintf(outputFile, "%03d.%03d", tv.tv_usec / 1000, tv.tv_usec % 1000);
+            fprintf(outputFile, "%03ld.%03ld", tv.tv_usec / 1000, tv.tv_usec % 1000);
             fprintf(outputFile, ", %llu\n", tx_elapsed);
         }
 
@@ -299,7 +299,7 @@ void executeCommands(int serialPortFD, FILE *outputFile, size_t filesize, const 
             }
             else
             {
-                fprintf(outputFile, "timeout", bytesRead);
+                fprintf(outputFile, "timeout");
             }
 
             tcflush(serialPortFD, TCIOFLUSH);
